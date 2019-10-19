@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name briefkastensensor-rescue)(type Legacy)(uri ${KIPRJMOD}/briefkastensensor-rescue.lib)(options "")(descr ""))
+)

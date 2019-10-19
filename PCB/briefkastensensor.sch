@@ -1,0 +1,351 @@
+EESchema Schematic File Version 4
+LIBS:briefkastensensor-cache
+EELAYER 29 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L power:+3V3 #PWR01
+U 1 1 5CC04205
+P 2450 2200
+F 0 "#PWR01" H 2450 2050 50  0001 C CNN
+F 1 "+3V3" H 2465 2373 50  0000 C CNN
+F 2 "" H 2450 2200 50  0001 C CNN
+F 3 "" H 2450 2200 50  0001 C CNN
+	1    2450 2200
+	1    0    0    -1  
+$EndComp
+$Comp
+L briefkastensensor-rescue:HSDL-9100-021-HSDL-9100-021 D1
+U 1 1 5CC0489B
+P 6200 4500
+F 0 "D1" V 6550 4150 50  0000 L CNN
+F 1 "HSDL-9100-021" V 6530 4455 50  0000 L CNN
+F 2 "Package_DIP:HSDL-9100" H 6200 4500 50  0001 L BNN
+F 3 "Broadcom Limited" H 6200 4500 50  0001 L BNN
+F 4 "Proximity sensor [Broadcom] HSDL-9100-021 Proximity sensor" H 6200 4500 50  0001 L BNN "Feld4"
+F 5 "SMD-4 Broadcom" H 6200 4500 50  0001 L BNN "Feld5"
+F 6 "None" H 6200 4500 50  0001 L BNN "Feld6"
+F 7 "HSDL-9100-021" H 6200 4500 50  0001 L BNN "Feld7"
+F 8 "Unavailable" H 6200 4500 50  0001 L BNN "Feld8"
+	1    6200 4500
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Device:RTRIM R3
+U 1 1 5CC04BAD
+P 7400 4450
+F 0 "R3" H 7527 4496 50  0000 L CNN
+F 1 "RTRIM (1MEG)" H 7527 4405 50  0000 L CNN
+F 2 "Potentiometer_SMD:Potentiometer_Bourns_3314G_Vertical" V 7330 4450 50  0001 C CNN
+F 3 "~" H 7400 4450 50  0001 C CNN
+	1    7400 4450
+	1    0    0    -1  
+$EndComp
+$Comp
+L pspice:R R2
+U 1 1 5CC04D64
+P 5750 5300
+F 0 "R2" V 5850 5250 50  0000 L CNN
+F 1 "220 OHM" V 5600 5150 50  0000 L CNN
+F 2 "Resistor_SMD:R_1206_3216Metric" H 5750 5300 50  0001 C CNN
+F 3 "~" H 5750 5300 50  0001 C CNN
+	1    5750 5300
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Device:LED D2
+U 1 1 5CC04DCF
+P 6150 5300
+F 0 "D2" H 6142 5045 50  0000 C CNN
+F 1 "LED" H 6142 5136 50  0000 C CNN
+F 2 "LED_SMD:LED_PLCC_2835_Handsoldering" H 6150 5300 50  0001 C CNN
+F 3 "~" H 6150 5300 50  0001 C CNN
+	1    6150 5300
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	2450 2200 2450 2250
+$Comp
+L pspice:R R1
+U 1 1 5CC052AD
+P 5350 4700
+F 0 "R1" V 5450 4650 50  0000 L CNN
+F 1 "33 OHM" V 5200 4550 50  0000 L CNN
+F 2 "Resistor_SMD:R_1206_3216Metric" H 5350 4700 50  0001 C CNN
+F 3 "~" H 5350 4700 50  0001 C CNN
+	1    5350 4700
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR04
+U 1 1 5CC055EB
+P 7400 5800
+F 0 "#PWR04" H 7400 5550 50  0001 C CNN
+F 1 "GND" H 7405 5627 50  0000 C CNN
+F 2 "" H 7400 5800 50  0001 C CNN
+F 3 "" H 7400 5800 50  0001 C CNN
+	1    7400 5800
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6800 4700 7400 4700
+Wire Wire Line
+	7400 4700 7400 5300
+Wire Wire Line
+	7400 4600 7400 4700
+Connection ~ 7400 4700
+Wire Wire Line
+	6300 5300 7400 5300
+Connection ~ 7400 5300
+$Comp
+L briefkastensensor-rescue:RFM95W-868S2-RF_AM_FM U2
+U 1 1 5CC097E3
+P 3450 2250
+F 0 "U2" V 3450 2150 50  0000 L CNN
+F 1 "RFM95W" V 3550 2050 50  0000 L CNN
+F 2 "RF_Module:HOPERF_RFM9XW_SMD" H 150 3900 50  0001 C CNN
+F 3 "http://www.hoperf.com/upload/rf/RFM95_96_97_98W.pdf" H 150 3900 50  0001 C CNN
+	1    3450 2250
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR03
+U 1 1 5CC0C98C
+P 4300 2250
+F 0 "#PWR03" H 4300 2000 50  0001 C CNN
+F 1 "GND" H 4305 2077 50  0000 C CNN
+F 2 "" H 4300 2250 50  0001 C CNN
+F 3 "" H 4300 2250 50  0001 C CNN
+	1    4300 2250
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2950 2250 2450 2250
+Wire Wire Line
+	4050 2250 4300 2250
+Wire Wire Line
+	3850 1750 3850 1600
+Wire Wire Line
+	7050 4300 7400 4300
+Wire Wire Line
+	6800 4300 7050 4300
+Connection ~ 7050 4300
+Wire Wire Line
+	7050 4300 7050 3900
+Wire Wire Line
+	4150 4900 4150 4700
+Wire Wire Line
+	4150 4700 5100 4700
+Wire Wire Line
+	4150 4500 4150 4300
+Wire Wire Line
+	4150 4300 5600 4300
+Wire Wire Line
+	4000 3900 4000 4400
+Wire Wire Line
+	4000 3900 7050 3900
+Wire Wire Line
+	7400 5300 7400 5800
+$Comp
+L Connector_Generic:Conn_01x02 J1
+U 1 1 5D0A3A76
+P 6050 2800
+F 0 "J1" H 6130 2792 50  0000 L CNN
+F 1 "Conn_01x02" H 6130 2701 50  0000 L CNN
+F 2 "Battery:BatteryHolder_Keystone_1058_1x2032" H 6050 2800 50  0001 C CNN
+F 3 "~" H 6050 2800 50  0001 C CNN
+	1    6050 2800
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 5D0D2F9D
+P 5850 2900
+F 0 "#PWR0101" H 5850 2650 50  0001 C CNN
+F 1 "GND" H 5855 2727 50  0000 C CNN
+F 2 "" H 5850 2900 50  0001 C CNN
+F 3 "" H 5850 2900 50  0001 C CNN
+	1    5850 2900
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR0102
+U 1 1 5D0D381A
+P 5850 2800
+F 0 "#PWR0102" H 5850 2650 50  0001 C CNN
+F 1 "+3V3" H 5865 2973 50  0000 C CNN
+F 2 "" H 5850 2800 50  0001 C CNN
+F 3 "" H 5850 2800 50  0001 C CNN
+	1    5850 2800
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:AVR-ISP-6 J2
+U 1 1 5D2E9C50
+P 4000 6450
+F 0 "J2" H 3721 6546 50  0000 R CNN
+F 1 "AVR-ISP-6" H 3721 6455 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical_SMD" V 3750 6500 50  0001 C CNN
+F 3 " ~" H 2725 5900 50  0001 C CNN
+	1    4000 6450
+	1    0    0    -1  
+$EndComp
+Text GLabel 4400 6550 2    50   BiDi ~ 0
+RST
+Text GLabel 4400 6450 2    50   BiDi ~ 0
+SCK
+Text GLabel 4400 6350 2    50   BiDi ~ 0
+MOSI
+Text GLabel 4400 6250 2    50   BiDi ~ 0
+MISO
+Text GLabel 3350 2750 3    50   BiDi ~ 0
+MOSI
+Text GLabel 3250 2750 3    50   BiDi ~ 0
+MISO
+Text GLabel 3150 2750 3    50   BiDi ~ 0
+SCK
+$Comp
+L power:GND #PWR0103
+U 1 1 5D2EDF17
+P 3900 6850
+F 0 "#PWR0103" H 3900 6600 50  0001 C CNN
+F 1 "GND" H 3905 6677 50  0000 C CNN
+F 2 "" H 3900 6850 50  0001 C CNN
+F 3 "" H 3900 6850 50  0001 C CNN
+	1    3900 6850
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR0104
+U 1 1 5D2EEB63
+P 3900 5950
+F 0 "#PWR0104" H 3900 5800 50  0001 C CNN
+F 1 "+3V3" H 3915 6123 50  0000 C CNN
+F 2 "" H 3900 5950 50  0001 C CNN
+F 3 "" H 3900 5950 50  0001 C CNN
+	1    3900 5950
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:Antenna AE1
+U 1 1 5CC0C1F7
+P 3150 1250
+F 0 "AE1" H 3230 1241 50  0000 L CNN
+F 1 "Antenna" H 3230 1150 50  0000 L CNN
+F 2 "Antennas:TI-DN024-SL-SHORT" H 3150 1250 50  0001 C CNN
+F 3 "~" H 3150 1250 50  0001 C CNN
+	1    3150 1250
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:L L1
+U 1 1 5D39A1B7
+P 3150 1600
+F 0 "L1" H 3203 1646 50  0000 L CNN
+F 1 "L" H 3203 1555 50  0000 L CNN
+F 2 "Inductor_SMD:L_0603_1608Metric" H 3150 1600 50  0001 C CNN
+F 3 "~" H 3150 1600 50  0001 C CNN
+	1    3150 1600
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C1
+U 1 1 5D3955A8
+P 2950 1750
+F 0 "C1" V 2721 1750 50  0000 C CNN
+F 1 "C_Small" V 2812 1750 50  0000 C CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 2950 1750 50  0001 C CNN
+F 3 "~" H 2950 1750 50  0001 C CNN
+	1    2950 1750
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0105
+U 1 1 5D3AF316
+P 2800 1750
+F 0 "#PWR0105" H 2800 1500 50  0001 C CNN
+F 1 "GND" H 2805 1577 50  0000 C CNN
+F 2 "" H 2800 1750 50  0001 C CNN
+F 3 "" H 2800 1750 50  0001 C CNN
+	1    2800 1750
+	1    0    0    -1  
+$EndComp
+Connection ~ 2450 2250
+Text GLabel 3050 4600 2    50   BiDi ~ 0
+SCK
+Text GLabel 3050 4700 2    50   BiDi ~ 0
+MISO
+Text GLabel 3050 4800 2    50   BiDi ~ 0
+MOSI
+Text GLabel 3050 5400 2    50   BiDi ~ 0
+RST
+Wire Wire Line
+	2450 5700 2450 5850
+Wire Wire Line
+	4000 4400 3050 4400
+Wire Wire Line
+	3050 4500 4150 4500
+Wire Wire Line
+	3050 4900 4150 4900
+Wire Wire Line
+	3050 5300 5500 5300
+Wire Wire Line
+	3450 5200 3050 5200
+Wire Wire Line
+	4600 5100 3050 5100
+$Comp
+L MCU_Microchip_ATtiny:ATtiny84-20PU U1
+U 1 1 5CC04A57
+P 2450 4800
+F 0 "U1" H 1920 4846 50  0000 R CNN
+F 1 "ATtiny84-20PU" H 2600 4950 50  0000 R CNN
+F 2 "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm" H 2450 4800 50  0001 C CIN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/doc8006.pdf" H 2450 4800 50  0001 C CNN
+	1    2450 4800
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR02
+U 1 1 5CC04235
+P 2450 5850
+F 0 "#PWR02" H 2450 5600 50  0001 C CNN
+F 1 "GND" H 2455 5677 50  0000 C CNN
+F 2 "" H 2450 5850 50  0001 C CNN
+F 3 "" H 2450 5850 50  0001 C CNN
+	1    2450 5850
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4600 1600 4600 5100
+Wire Wire Line
+	2450 2250 2450 3900
+Wire Wire Line
+	4050 2150 4050 2250
+Connection ~ 4050 2250
+Wire Wire Line
+	4050 2250 4050 2350
+Wire Wire Line
+	3850 1600 4600 1600
+Wire Wire Line
+	3050 4300 3650 4300
+Wire Wire Line
+	3650 4300 3650 2750
+Wire Wire Line
+	3450 2750 3450 5200
+Wire Wire Line
+	2850 1750 2800 1750
+Wire Wire Line
+	3050 1750 3150 1750
+Connection ~ 3150 1750
+$EndSCHEMATC
