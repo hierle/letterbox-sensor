@@ -1,6 +1,8 @@
 LoRaWan Letterbox Sensor, sensing letters in your letterbox via IR diode pair, sending out status via LoRaWan/TTN
 based on Attiny84, RFM95W, HSDL9100, powered by a CR2032 battery.
 
+![Lora letterbox sensor](https://github.com/hierle/letterbox-sensor/blob/master/misc/letterbox-sensor.jpg?raw=true)
+
 This is basically a clone of the heise ct briefkasten sensor project<br> 
 https://www.heise.de/ratgeber/IoT-Netz-LoRaWAN-Briefkastensensor-mit-hoher-Reichweite-selber-bauen-4417179.html<br>
 https://github.com/jamct/radio-mailbox
@@ -11,12 +13,11 @@ Contents:
 - letterbox_sensor:  lora letterbox sensor sketch
 - misc:              payload decoder, sample http integration cgi
 
-Compiles with platformio, flashed with ArduinoISP
+Compiled with platformio, hex flashed to attiny with ArduinoISP
 
-![Lora letterbox sensor](https://github.com/hierle/letterbox-sensor/blob/master/misc/letterbox-sensor.jpg?raw=true)
 Changes:
 - created SMD PCB
-- onboard PCB antenna after TI document 
+- onboard PCB antenna after TI document http://www.ti.com/lit/an/swra227e/swra227e.pdf
 - switched MISO/MOSI lines of RFM95
 - Attiny pin renumbering 0...10 -> 10-0
 - sensor pin naming changed from 8 -> A2, otherwise no ADC reading
