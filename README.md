@@ -26,6 +26,7 @@ Changes:
 - added sensor raw value, voltage, temperature in lora package
 
 BOM (digikey.de):
+
 |ATTINY84A-SSUR     |  IC MCU 8BIT 14SOIC |
 |HSDL-9100-021      |  PROXIMITY SENSOR |
 |RFM95W-868S2       |  RF TXRX MODULE |
