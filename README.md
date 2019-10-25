@@ -27,17 +27,19 @@ Changes:
 
 BOM (digikey.de):
 
-|ATTINY84A-SSUR     |  IC MCU 8BIT 14SOIC |
-|HSDL-9100-021      |  PROXIMITY SENSOR |
-|RFM95W-868S2       |  RF TXRX MODULE |
-|3314G-1-105E       |  TRIMMER 1M OHM |
-|BU2032SM-FH-GTR    |  CR2032 COIN CELL HOLDER |
-|HLE-103-02-L-DV    |  CONN RCPT 6POS |
-|AA3528LSECKT/J4    |  LED ORANGE |
-|CRGCQ1206F33R      |  33R 1206 |
-|CRGCQ1206F220R     |  220R 1206 |
-|LQG18HN1N8S00D     |  IND 1.8NH 0603 |
-|GRM1885C1H2R7CA01D |  CAP 2.7PF 0603 |
+|Part number        |  Description            |
+|-------------------|-------------------------|
+|ATTINY84A-SSUR     |  IC MCU 8BIT 14SOIC     |
+|HSDL-9100-021      |  PROXIMITY SENSOR       |
+|RFM95W-868S2       |  RF TXRX MODULE         |
+|3314G-1-105E       |  TRIMMER 1M OHM         |
+|BU2032SM-FH-GTR    |  CR2032 COIN CELL HOLDER|
+|HLE-103-02-L-DV    |  CONN RCPT 6POS         |
+|AA3528LSECKT/J4    |  LED ORANGE             |
+|CRGCQ1206F33R      |  33R 1206               |
+|CRGCQ1206F220R     |  220R 1206              |
+|LQG18HN1N8S00D     |  IND 1.8NH 0603         |
+|GRM1885C1H2R7CA01D |  CAP 2.7PF 0603         |
 
 
 Have fun!
