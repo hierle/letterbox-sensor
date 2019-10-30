@@ -2,7 +2,7 @@
 sensing letters in your letterbox via IR diode pair, sending out status via LoRaWan/TTN
 based on Attiny84, RFM95W, HSDL9100, powered by a CR2032 battery.
 
-![Lora letterbox sensor](https://github.com/hierle/letterbox-sensor/blob/master/misc/letterbox-sensor.jpg?raw=true)
+![Lora letterbox sensor](https://github.com/hierle/letterbox-sensor/blob/master/misc/letterbox-sensor.png?raw=true)
 
 This is basically a clone of the heise ct briefkasten sensor project<br> 
 https://www.heise.de/ratgeber/IoT-Netz-LoRaWAN-Briefkastensensor-mit-hoher-Reichweite-selber-bauen-4417179.html<br>
