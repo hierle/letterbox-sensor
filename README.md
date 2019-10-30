@@ -9,10 +9,10 @@ https://www.heise.de/ratgeber/IoT-Netz-LoRaWAN-Briefkastensensor-mit-hoher-Reich
 https://github.com/jamct/radio-mailbox
 
 Contents:
-- ./PCB :               kicad PCB files
-- ./calibrate :         calibration sketch to adjust the poti for letter distance
-- ./letterbox_sensor :  lora letterbox sensor sketch
-- ./misc :              payload decoder, sample http integration cgi
+- ./PCB/ :               kicad PCB files
+- ./calibrate/ :         calibration sketch to adjust the poti for letter distance
+- ./letterbox_sensor/ :  lora letterbox sensor sketch
+- ./misc/ :              payload decoder, sample http integration cgi
 
 Compiled with platformio, hex flashed to attiny with ArduinoISP
 
