@@ -150,11 +150,16 @@ if (-e $conffile) {
   open CONFF, '<', $conffile or die;
   while (my $line = <CONFF>) {
     chomp($line);
-    if ($line =~ /^([a-z]+)=(.*)$/o) {
+    if ($line =~ /^([A-Za-z0-9-\.]+)=(.*)$/o) {
       $config{$1} = $2;
     };
   };
   close CONFF;
+  if (defined $config{'debug'} && defined $config{'debug'} > 0) {
+    for my $key (sort keys %config) {
+      logging("config: " . $key . "=" . $config{$key});
+    };
+  };
 };
 
 # print environment to error log
