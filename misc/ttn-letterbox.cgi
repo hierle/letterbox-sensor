@@ -37,6 +37,10 @@
 #     - default: 0 (no debug)
 #   - threshold.<dev_id>=<value>
 #     - default: received in JSON from sensor
+#   - delta.warn=<minutes>
+#     - default: 45
+#   - delta.crit=<minutes>
+#     - default: 90
 #
 # Access control
 #   - CGI honors for POST requests X-TTN-AUTH header which can be configured manually on TTN controller side
@@ -78,7 +82,7 @@
 # 20191030/bie: add full/empty status support
 # 20191031/bie: add filled/empty support (directly [future usage] and indirectly)
 # 20191101/bie: add optional password protection capability for POST request, add support for config file
-# 20191104/bie: add deltaLastChanged and threshold per dev_id in config
+# 20191104/bie: add deltaLastChanged and threshold per dev_id in config, change color in case lastReceived is above limits
 #
 # TODO:
 # - lock around file writes
@@ -104,6 +108,8 @@ sub logging($);
 my %config = (
   'autoregister'  => 0,     # autoregister devices
   'autorefresh'   => 900,   # (seconds) of HTML autorefreshing
+  'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
+  'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
   'debug'         => 0      # debug
 );
 
@@ -357,6 +363,21 @@ if (defined $reqm && $reqm eq "POST") { # POST data
   my $emptiedtime_write = 0;
   my $filledtime_write = 0;
 
+  if (defined $config{"threshold." . $dev_id}) {
+    # overwrite threshold if given
+    my $threshold = $config{"threshold." . $dev_id};
+    $content->{'payload_fields'}->{'threshold'} = $threshold;
+
+    my $sensor = $content->{'payload_fields'}->{'sensor'};
+    my $box = $content->{'payload_fields'}->{'box'};
+
+    if (($sensor < $threshold) && ($box eq "full")) {
+      $content->{'payload_fields'}->{'box'} = "empty";
+    } elsif (($sensor >= $threshold) && ($box eq "empty")) {
+      $content->{'payload_fields'}->{'box'} = "full";
+    };
+  };
+
   # init
   if ($content->{'payload_fields'}->{'box'} eq "full") {
     if (! -e $filledfile) {
@@ -564,7 +585,10 @@ if (defined $reqm && $reqm eq "POST") { # POST data
         $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = sprintf("%d days %d hours", int((time - $timeLastChange) / 3600 * 24), int((time - $timeLastChange) / 60 / 60) % 24);
       };
     };
-    $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = int((time - $time_ut) / 60) . " min";
+
+    my $deltaLastReceived = int((time - $time_ut) / 60);
+    $dev_hash{$dev_id}->{'values'}->{'deltaLastReceived'} = $deltaLastReceived;
+    $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = $deltaLastReceived . " min";
     $dev_hash{$dev_id}->{'info'}->{'timeLastReceived'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($timeReceived_ut));
     $dev_hash{$dev_id}->{'info'}->{'sensor'} = $sensor;
     $dev_hash{$dev_id}->{'info'}->{'threshold'} = $threshold;
@@ -699,6 +723,7 @@ sub letter($) {
 
   my $response;
   my $bg;
+  my $fc;
 
   $response = "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">\n";
 
@@ -730,20 +755,34 @@ sub letter($) {
     $response .= "<td><font size=-1>" . $info . "</font></td>";
 
     for my $dev_id (sort keys %$dev_hash_p) {
+      # no bgcolor
+      $bg = "";
+      # no fontcolor
+      $fc = "";
       if ($info =~ /(Filled|Emptied)/o) {
         # set predefined bgcolor
         $bg = " bgcolor=" . $bg_colors{lc($1)};
+        # no fontcolor
+        $fc = "";
       } elsif ($info =~ /LastReceived/o) {
         if (defined $bg_colors{$$dev_hash_p{$dev_id}->{'box'}}) {
           # set bgcolor if defined
           $bg = " bgcolor=" . $bg_colors{$$dev_hash_p{$dev_id}->{'box'}};
         };
-      } else {
-        # no bgcolor
-        $bg = "";
+        if ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.crit"}) {
+          # disable bgcolor
+          $bg = "";
+          # activate fontcolor
+          $fc = " color=red";
+        } elsif ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.warn"}) {
+          # disable bgcolor
+          $bg = "";
+          # activate fontcolor
+          $fc = " color=orange";
+        };
       };
 
-      $response .= "<td" . $bg . " align=\"right\"><font size=-1>" . $$dev_hash_p{$dev_id}->{'info'}->{$info} . "</font></td>";
+      $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $$dev_hash_p{$dev_id}->{'info'}->{$info} . "</font></td>";
     };
     $response .= "</tr>\n";
   };
