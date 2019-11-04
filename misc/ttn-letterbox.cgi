@@ -35,6 +35,8 @@
 #     - 1 (autoregister devices)
 #   - debug=<value>
 #     - default: 0 (no debug)
+#   - threshold.<dev_id>=<value>
+#     - default: received in JSON from sensor
 #
 # Access control
 #   - CGI honors for POST requests X-TTN-AUTH header which can be configured manually on TTN controller side
@@ -76,6 +78,7 @@
 # 20191030/bie: add full/empty status support
 # 20191031/bie: add filled/empty support (directly [future usage] and indirectly)
 # 20191101/bie: add optional password protection capability for POST request, add support for config file
+# 20191104/bie: add deltaLastChanged and threshold per dev_id in config
 #
 # TODO:
 # - lock around file writes
@@ -114,13 +117,6 @@ my $today = strftime "%Y%m%d", gmtime(time);
 # defines from environment
 my $reqm = $ENV{'REQUEST_METHOD'};
 
-# print environment to error log
-if (defined $config{'debug'} && $config{'debug'} ne "0") {
-  for my $env (sort keys %ENV) {
-    logging("CGI environment: " . $env . "=" . $ENV{$env});
-  };
-};
-
 ####################
 ## basic error check
 ####################
@@ -155,6 +151,14 @@ if (-e $conffile) {
   close CONFF;
 };
 
+# print environment to error log
+if (defined $config{'debug'} && $config{'debug'} ne "0") {
+  for my $env (sort keys %ENV) {
+    logging("CGI environment: " . $env . "=" . $ENV{$env});
+  };
+};
+
+# owerwrite datadir
 if (defined $config{'datadir'}) {
   $datadir = $config{'datadir'};
 };
@@ -199,7 +203,7 @@ my $filledfile_template = "$datadir/ttn.DEV_ID.filled.time.status";
 my $emptiedfile_template = "$datadir/ttn.DEV_ID.emptied.time.status";
 
 # list and order of info rows in output
-my @info_array = ('timeNow', 'timeLastReceived', 'timeFilled', 'timeEmptied', 'deltaLastUpdate', 'sensor', 'threshold', 'tempC', 'voltage', 'rssi', 'snr', 'counter', 'hardwareSerial');
+my @info_array = ('timeNow', 'deltaLastChanged', 'deltaLastReceived', 'timeLastReceived', 'timeFilled', 'timeEmptied', 'sensor', 'threshold', 'tempC', 'voltage', 'rssi', 'snr', 'counter', 'hardwareSerial');
 
 # definitions
 my %dev_hash;
@@ -518,6 +522,11 @@ if (defined $reqm && $reqm eq "POST") { # POST data
     my $rssi = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
     my $snr = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
 
+    # overwrite threshold if given
+    if (defined $config{"threshold." . $dev_id}) {
+      $threshold = $config{"threshold." . $dev_id};
+    };
+
     # create array with additional information
     my $time_ut = str2time($time);
     my $timeReceived_ut = str2time($timeReceived);
@@ -525,20 +534,37 @@ if (defined $reqm && $reqm eq "POST") { # POST data
     # store in hash
     $dev_hash{$dev_id}->{'box'} = $content->{'payload_fields'}->{'box'};
 
+    my ($timeLastChange, $typeLastChange); 
+
     if (defined $filledtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
+      $timeLastChange = $filledtime_ut;
+      $typeLastChange = "Filled";
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeFilled'} = "n/a";
     };
 
     if (defined $emptiedtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
+      if ($emptiedtime_ut > $timeLastChange) {
+        $timeLastChange = $emptiedtime_ut;
+        $typeLastChange = "Emptied";
+      };
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeEmptied'} = "n/a";
     };
 
     $dev_hash{$dev_id}->{'info'}->{'timeNow'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
-    $dev_hash{$dev_id}->{'info'}->{'deltaLastUpdate'} = int((time - $time_ut) / 60) . " min";
+    if (defined $timeLastChange) {
+      if ((time - $timeLastChange) < 3600) {
+        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = int((time - $timeLastChange) / 60) . " minutes";
+      } elsif ((time - $timeLastChange) < 3600 * 24) {
+        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = sprintf("%d hours %d minutes", int((time - $timeLastChange) / 3600), int((time - $timeLastChange) / 60) % 60);
+      } else {
+        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = sprintf("%d days %d hours", int((time - $timeLastChange) / 3600 * 24), int((time - $timeLastChange) / 60 / 60) % 24);
+      };
+    };
+    $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = int((time - $time_ut) / 60) . " min";
     $dev_hash{$dev_id}->{'info'}->{'timeLastReceived'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($timeReceived_ut));
     $dev_hash{$dev_id}->{'info'}->{'sensor'} = $sensor;
     $dev_hash{$dev_id}->{'info'}->{'threshold'} = $threshold;
