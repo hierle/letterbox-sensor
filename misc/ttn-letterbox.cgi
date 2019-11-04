@@ -155,7 +155,7 @@ if (-e $conffile) {
     };
   };
   close CONFF;
-  if (defined $config{'debug'} && defined $config{'debug'} > 0) {
+  if (defined $config{'debug'} && $config{'debug'} > 0) {
     for my $key (sort keys %config) {
       logging("config: " . $key . "=" . $config{$key});
     };
