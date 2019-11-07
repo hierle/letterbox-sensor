@@ -83,6 +83,7 @@
 # 20191031/bie: add filled/empty support (directly [future usage] and indirectly)
 # 20191101/bie: add optional password protection capability for POST request, add support for config file
 # 20191104/bie: add deltaLastChanged and threshold per dev_id in config, change color in case lastReceived is above limits
+# 20191107/bie: fix+improve delta time calc+display
 #
 # TODO:
 # - lock around file writes
@@ -103,6 +104,7 @@ use Crypt::SaltedHash;
 sub response($$;$$);
 sub letter($);
 sub logging($);
+sub deltatime_string($);
 
 # global config (can be overwritten/extended by config file)
 my %config = (
@@ -582,18 +584,13 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 
     $dev_hash{$dev_id}->{'info'}->{'timeNow'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
     if (defined $timeLastChange) {
-      if ((time - $timeLastChange) < 3600) {
-        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = int((time - $timeLastChange) / 60) . " minutes";
-      } elsif ((time - $timeLastChange) < 3600 * 24) {
-        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = sprintf("%d hours %d minutes", int((time - $timeLastChange) / 3600), int((time - $timeLastChange) / 60) % 60);
-      } else {
-        $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = sprintf("%d days %d hours", int((time - $timeLastChange) / 3600 * 24), int((time - $timeLastChange) / 60 / 60) % 24);
-      };
+      $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = deltatime_string(time - $timeLastChange);
     };
 
-    my $deltaLastReceived = int((time - $time_ut) / 60);
+    my $deltaLastReceived = time - $timeReceived_ut;
+
     $dev_hash{$dev_id}->{'values'}->{'deltaLastReceived'} = $deltaLastReceived;
-    $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = $deltaLastReceived . " min";
+    $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = deltatime_string($deltaLastReceived);
     $dev_hash{$dev_id}->{'info'}->{'timeLastReceived'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($timeReceived_ut));
     $dev_hash{$dev_id}->{'info'}->{'sensor'} = $sensor;
     $dev_hash{$dev_id}->{'info'}->{'threshold'} = $threshold;
@@ -630,6 +627,19 @@ sub logging($) {
 
   if (length($message) > 0) {
     print STDERR $program . ": " . $message . "\n";
+  };
+};
+
+
+## create deltatime string
+sub deltatime_string($) {
+  my $delta = shift;
+  if ($delta < 3600) {
+    return sprintf("%d min", int($delta / 60));
+  } elsif ($delta < 3600 * 24) {
+    return sprintf("%d hrs %d min", int($delta / 3600), int($delta / 60) % 60);
+  } else {
+    return sprintf("%d days %d hrs", int($delta / 3600 / 24), int($delta / 60 / 60) % 24);
   };
 };
 
@@ -774,12 +784,12 @@ sub letter($) {
           # set bgcolor if defined
           $bg = " bgcolor=" . $bg_colors{$$dev_hash_p{$dev_id}->{'box'}};
         };
-        if ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.crit"}) {
+        if ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.crit"} * 60) {
           # disable bgcolor
           $bg = "";
           # activate fontcolor
           $fc = " color=red";
-        } elsif ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.warn"}) {
+        } elsif ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.warn"} * 60) {
           # disable bgcolor
           $bg = "";
           # activate fontcolor
