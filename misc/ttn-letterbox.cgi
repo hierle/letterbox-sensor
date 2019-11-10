@@ -84,6 +84,7 @@
 # 20191101/bie: add optional password protection capability for POST request, add support for config file
 # 20191104/bie: add deltaLastChanged and threshold per dev_id in config, change color in case lastReceived is above limits
 # 20191107/bie: fix+improve delta time calc+display
+# 20191110/bie: implement hooks for additional modules (statistics), minor reorg
 #
 # TODO:
 # - lock around file writes
@@ -100,23 +101,37 @@ use JSON;
 use Date::Parse;
 use Crypt::SaltedHash;
 
+# global hooks
+our %hooks;
+
+# optional modules
+my @module_list = ("ttn-letterbox-statistics.pm");
+
+for my $module (@module_list) {
+  if (-e $module && -r $module) {
+    require $module;
+  };
+};
+
+# name of program
+my $program = "ttn-letterbox.cgi";
+
 # prototyping
 sub response($$;$$);
 sub letter($);
 sub logging($);
 sub deltatime_string($);
+sub req_post();
+sub req_get();
 
 # global config (can be overwritten/extended by config file)
-my %config = (
+our %config = (
   'autoregister'  => 0,     # autoregister devices
   'autorefresh'   => 900,   # (seconds) of HTML autorefreshing
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
   'debug'         => 0      # debug
 );
-
-# name of program
-my $program = "ttn-letterbox.cgi";
 
 # set time strings
 my $nowstr = strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(time);
@@ -174,6 +189,9 @@ if (defined $config{'debug'} && $config{'debug'} ne "0") {
 # owerwrite datadir
 if (defined $config{'datadir'}) {
   $datadir = $config{'datadir'};
+} else {
+  # store in config hash
+  $config{'datadir'} = $datadir;
 };
 
 if (! -e $datadir) {
@@ -222,6 +240,16 @@ my @info_array = ('timeNow', 'deltaLastChanged', 'deltaLastReceived', 'timeLastR
 my %dev_hash;
 
 
+####################
+## init hook
+####################
+for my $module (sort keys %hooks) {
+  if (defined $hooks{$module}->{'init'}) {
+    $hooks{$module}->{'init'}->();
+  };
+};
+
+
 ###########
 ## START ##
 ###########
@@ -229,6 +257,33 @@ my %dev_hash;
 
 ## handle web request
 if (defined $reqm && $reqm eq "POST") { # POST data
+  req_post();
+  exit;
+
+} elsif (defined $reqm && $reqm eq "GET") { # GET request
+  req_get();
+  exit;
+
+} elsif (defined $reqm && $reqm eq "HEAD") { # HEAD request
+  response(200, "OK");
+  exit;
+
+} elsif (defined $reqm) { # not supported method
+  response(400, "unsupported request method", "", "request method: $reqm");
+  exit;
+};
+
+
+##############
+##############
+# Main functions
+##############
+##############
+
+##############
+## handling POST request
+##############
+sub req_post() {
   # receive POST data
   my @lines;
   while (<STDIN>) {
@@ -459,10 +514,21 @@ if (defined $reqm && $reqm eq "POST") { # POST data
   print LOGF $lines[0] . "\n";
   close LOGF;
 
-  response(200, "OK");
-  exit;
+  ####################
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'store_data'}) {
+      $hooks{$module}->{'store_data'}->($dev_id, $nowstr, $content);
+    };
+  };
 
-} elsif (defined $reqm && $reqm eq "GET") { # GET request
+  response(200, "OK");
+};
+
+
+##############
+## handling GET request
+##############
+sub req_get() {
   my @devices;
   if (-e $devfile) {
     # read devices
@@ -602,25 +668,31 @@ if (defined $reqm && $reqm eq "POST") { # POST data
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} = $hardware_serial;
     # mask hardware_serial
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} =~ s/(..)....(..)/$1****$2/g;
+
+    ####################
+    for my $module (sort keys %hooks) {
+      if (defined $hooks{$module}->{'init_device'}) {
+        $hooks{$module}->{'init_device'}->($dev_id);
+      };
+    };
+
+    ####################
+    for my $module (sort keys %hooks) {
+      if (defined $hooks{$module}->{'get_graphics'}) {
+        my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id);
+        $dev_hash{$dev_id}->{'graphics'} = \%graphics;
+      };
+    };
   };
 
   # create output
   letter(\%dev_hash);
-
-} elsif (defined $reqm && $reqm eq "HEAD") { # HEAD request
-  response(200, "OK");
-  exit;
-
-} elsif (defined $reqm) { # not supported method
-  response(400, "unsupported request method", "", "request method: $reqm");
-  exit;
 };
 
 
 ##############
-# Functions
+# helper functions
 ##############
-
 ## logging to STDERR
 sub logging($) {
   my $message = shift || "";
@@ -635,9 +707,9 @@ sub logging($) {
 sub deltatime_string($) {
   my $delta = shift;
   if ($delta < 3600) {
-    return sprintf("%d min", int($delta / 60));
+    return sprintf("%d mins", int($delta / 60));
   } elsif ($delta < 3600 * 24) {
-    return sprintf("%d hrs %d min", int($delta / 3600), int($delta / 60) % 60);
+    return sprintf("%d hrs %d mins", int($delta / 3600), int($delta / 60) % 60);
   } else {
     return sprintf("%d days %d hrs", int($delta / 3600 / 24), int($delta / 60 / 60) % 24);
   };
@@ -740,6 +812,8 @@ sub letter($) {
   my $bg;
   my $fc;
 
+  my $has_graphics = 0;
+
   $response = "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">\n";
 
   $response .= " <tr>";
@@ -798,8 +872,40 @@ sub letter($) {
       };
 
       $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $$dev_hash_p{$dev_id}->{'info'}->{$info} . "</font></td>";
+
+      # check for optional graphics
+      if (defined $$dev_hash_p{$dev_id}->{'graphics'}) {
+        $has_graphics = 1;
+      };
     };
     $response .= "</tr>\n";
+  };
+
+  if ($has_graphics == 1) {
+    # get list of types
+    my %types;
+    for my $dev_id (sort keys %$dev_hash_p) {
+      my $graphics_p = $$dev_hash_p{$dev_id}->{'graphics'};
+      for my $type (keys %$graphics_p) {
+        $types{$type} = 1;
+      };
+    };
+
+    # print optional graphics
+    for my $type (sort keys %types) {
+      $response .= " <tr>";
+      $response .= "<td><font size=-1>Graphics:<br />" . $type . "</font></td>";
+      for my $dev_id (sort keys %$dev_hash_p) {
+        $response .= "\n  <td align=\"center\">\n";
+        if (defined $$dev_hash_p{$dev_id}->{'graphics'}) {
+          my $graphics_p = $$dev_hash_p{$dev_id}->{'graphics'};
+          my $line = $$graphics_p{$type};
+          $response .= "   " . $line . "\n";
+        };
+        $response .= "  </td>";
+      };
+      $response .= "\n </tr>\n";
+    };
   };
 
   $response .= "</table>\n";
