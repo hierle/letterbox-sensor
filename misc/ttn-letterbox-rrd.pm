@@ -230,21 +230,23 @@ sub rrd_get_graphics($) {
 
       my $color = $rrd_config{$type}->{'color'};
 
-      my $width = 250;
+      my $width = 260;
       my $height = 80;
+      my $start = "end-14d";
 
       if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
-        $width = 100;
+        $width = 140;
         $height = 50;
+        $start = "end-7d";
       };
 
       if ($type eq "sensor") {
         RRDs::graph($output,
           "--end=now",
-          "--start=end-14d",
+          "--start=" . $start,
           "--width=" . $width,
           "--height=" . $height,
-          "--x-grid=HOUR:8:DAY:1:DAY:1:86400:%d",
+          "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
           "--logarithmic",
           "--units=si",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
@@ -253,10 +255,10 @@ sub rrd_get_graphics($) {
       } else {
         RRDs::graph($output,
           "--end=now",
-          "--start=end-14d",
+          "--start=" . $start,
           "--width=" . $width,
           "--height=" . $height,
-          "--x-grid=HOUR:8:DAY:1:DAY:1:86400:%d",
+          "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
           "LINE1:" . $type . $color . ":" . $type
         );
