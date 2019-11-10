@@ -105,7 +105,7 @@ use Crypt::SaltedHash;
 our %hooks;
 
 # optional modules
-my @module_list = ("ttn-letterbox-statistics.pm");
+my @module_list = ("ttn-letterbox-statistics.pm", "ttn-letterbox-rrd.pm");
 
 for my $module (@module_list) {
   if (-e $module && -r $module) {
@@ -680,7 +680,9 @@ sub req_get() {
     for my $module (sort keys %hooks) {
       if (defined $hooks{$module}->{'get_graphics'}) {
         my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id);
-        $dev_hash{$dev_id}->{'graphics'} = \%graphics;
+        for my $type (keys %graphics) {
+          $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
+        };
       };
     };
   };
