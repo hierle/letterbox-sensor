@@ -200,11 +200,13 @@ sub rrd_store_data($$$) {
 
   my $file = $config{'datadir'} . "/ttn." . $dev_id . ".rrd";
 
+  my $timeReceived_ut = str2time($timeReceived);
+
   $values{'voltage'} = $content->{'payload_fields'}->{'voltage'};
   $values{'sensor'} = $content->{'payload_fields'}->{'sensor'};
   $values{'tempC'} = $content->{'payload_fields'}->{'tempC'};
 
-  update_rrd($file, $timeReceived, \%values);
+  rrd_update($file, $timeReceived_ut, \%values);
 };
 
 ## get graphics
