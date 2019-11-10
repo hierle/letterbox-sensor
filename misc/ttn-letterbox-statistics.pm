@@ -1,4 +1,4 @@
-#!/bin/perl
+#!/bin/perl -w -T
 #
 # TheThingsNetwork HTTP letter box sensor statistics extension
 #
@@ -31,36 +31,29 @@ our %config;
 
 
 ## prototyping
-sub init();
-sub init_device($);
-sub get_graphics($);
-sub store_data($$$);
+sub statistics_init();
+sub statistics_init_device($);
+sub statistics_get_graphics($);
+sub statistics_store_data($$$);
 
 
 ## hooks
-$hooks{'statistics'}->{'init'} = \&init;
-$hooks{'statistics'}->{'init_device'} = \&init_device;
-$hooks{'statistics'}->{'get_graphics'} = \&get_graphics;
-$hooks{'statistics'}->{'store_data'} = \&store_data;
+$hooks{'statistics'}->{'init'} = \&statistics_init;
+$hooks{'statistics'}->{'init_device'} = \&statistics_init_device;
+$hooks{'statistics'}->{'get_graphics'} = \&statistics_get_graphics;
+$hooks{'statistics'}->{'store_data'} = \&statistics_store_data;
 
 
 ## statistics
 my @statistics = ("boxstatus", "receivedstatus");
 
-## locals
-my $width;
-my $height;
-my ($xmax, $ymax, $xgrid, $ygrid);
-my $file;
-my $mode;
-
 
 ## small charset for digits encoded in 15 bit
-my @digitFontPattern = (0x7b6f, 0x2492, 0x73e7, 0x79e7, 0x49ed, 0x79cf, 0x7bcf, 0x4927, 0x7bef, 0x79ef);
+my @statistics_digitFontPattern = (0x7b6f, 0x2492, 0x73e7, 0x79e7, 0x49ed, 0x79cf, 0x7bcf, 0x4927, 0x7bef, 0x79ef);
 
 
-## sizes
-my %sizes = (
+## statistics_sizes
+my %statistics_sizes = (
   'boxstatus' => {
       'xmax' => 96, # every 15 min
       'ymax' => 100, # 100 days
@@ -129,14 +122,14 @@ my %colors_infostore_set = (
 
 
 ## paint digit
-sub paintDigit($$$$$) {
+sub statistics_paintDigit($$$$$) {
 	my $image = $_[0];
 	my $x = $_[1];
 	my $y = $_[2];
 	my $d = $_[3];
 	my $col = $_[4];
 
-	my $pattern = $digitFontPattern[$d];
+	my $pattern = $statistics_digitFontPattern[$d];
   	my $bit;
 
         for (my $yd = 0; $yd < 5; $yd++) {
@@ -150,7 +143,7 @@ sub paintDigit($$$$$) {
 };
 
 ## paint number (maximal 5 digits)
-sub paintNumber($$$$$) {
+sub statistics_paintNumber($$$$$) {
 	my $image = $_[0];
 	my $x = $_[1];
 	my $y = $_[2];
@@ -161,7 +154,7 @@ sub paintNumber($$$$$) {
         my $xd = 0;
 
         if ($num == 0) {
-                paintDigit($image, $x, $y, $num, $col);
+                statistics_paintDigit($image, $x, $y, $num, $col);
         } else {
                 while ($mask > $num) {
                         $mask /= 10;
@@ -169,7 +162,7 @@ sub paintNumber($$$$$) {
 
                 while ($mask >= 1) {
                         $d = int($num / $mask);
-                        paintDigit($image, $x + $xd, $y, $d, $col);
+                        statistics_paintDigit($image, $x + $xd, $y, $d, $col);
                         $num -= $d * $mask;
                         $mask /= 10;
                         $xd += 4;
@@ -178,23 +171,23 @@ sub paintNumber($$$$$) {
 };
 
 ### create new XPM
-sub create_xpm($$) {
+sub statistics_xpm_create($$) {
   my $file = $_[0];
   my $type = $_[1];
 
   my $i;
 
   # get values
-  my $xmax = $sizes{$type}->{'xmax'};
-  my $ymax = $sizes{$type}->{'ymax'};
-  my $xdiv = $sizes{$type}->{'xdiv'};
-  my $ydiv = $sizes{$type}->{'ydiv'};
-  my $xgrid = $sizes{$type}->{'xgrid'};
-  my $ygrid = $sizes{$type}->{'ygrid'};
-  my $lborder = $sizes{$type}->{'lborder'};
-  my $rborder = $sizes{$type}->{'rborder'};
-  my $tborder = $sizes{$type}->{'tborder'};
-  my $bborder = $sizes{$type}->{'bborder'};
+  my $xmax = $statistics_sizes{$type}->{'xmax'};
+  my $ymax = $statistics_sizes{$type}->{'ymax'};
+  my $xdiv = $statistics_sizes{$type}->{'xdiv'};
+  my $ydiv = $statistics_sizes{$type}->{'ydiv'};
+  my $xgrid = $statistics_sizes{$type}->{'xgrid'};
+  my $ygrid = $statistics_sizes{$type}->{'ygrid'};
+  my $lborder = $statistics_sizes{$type}->{'lborder'};
+  my $rborder = $statistics_sizes{$type}->{'rborder'};
+  my $tborder = $statistics_sizes{$type}->{'tborder'};
+  my $bborder = $statistics_sizes{$type}->{'bborder'};
 
   # add border
   my $width = $xmax + $lborder + $rborder;
@@ -228,7 +221,7 @@ sub create_xpm($$) {
 
   # draw x top number
 	for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-		paintNumber($i, $x + $lborder - 1, 2, int($x / $xdiv), $color_number);
+		statistics_paintNumber($i, $x + $lborder - 1, 2, int($x / $xdiv), $color_number);
 	  # draw x ticks number
 		$i->xy($x + $lborder, $tborder - 2 , $color_ticks);
 		$i->xy($x + $lborder, $height - $bborder + 1 , $color_ticks);
@@ -248,7 +241,7 @@ sub create_xpm($$) {
 
   # draw y left number
 	for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-		paintNumber($i, 2, $y + $tborder - 1, int($y / $ydiv), $color_number);
+		statistics_paintNumber($i, 2, $y + $tborder - 1, int($y / $ydiv), $color_number);
 	  # draw y ticks number
 		$i->xy(0 + $lborder - 2, $y + $tborder, $color_ticks);
 		$i->xy($width - $rborder + 1, $y + $tborder, $color_ticks);
@@ -257,18 +250,18 @@ sub create_xpm($$) {
   if ($type eq "receivedstatus") {
     # draw x bottom number
     for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-      paintNumber($i, $x + $lborder - 1, $height - $bborder + 4, $x, $color_number);
+      statistics_paintNumber($i, $x + $lborder - 1, $height - $bborder + 4, $x, $color_number);
     };
 
     # draw y right number
     for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-      paintNumber($i, $width - $rborder + 4, $y + $tborder - 1, $y * $xmax, $color_number);
+      statistics_paintNumber($i, $width - $rborder + 4, $y + $tborder - 1, $y * $xmax, $color_number);
     };
   };
 
 
   # reset infostore
-	stamp_infostore($i, 0);
+	statistics_set_infostore($i, 0);
 
 	$i->save($file);
 
@@ -277,7 +270,7 @@ sub create_xpm($$) {
 
 
 ## update XPM
-sub xpm_update($$$$;$) {
+sub statistics_xpm_update($$$$;$) {
   my $file = $_[0];
   my $type = $_[1];
   my $value = $_[2];
@@ -285,20 +278,20 @@ sub xpm_update($$$$;$) {
   my $i = $_[4];
 
   # get values
-  my $xmax = $sizes{$type}->{'xmax'};
-  my $ymax = $sizes{$type}->{'ymax'};
-  my $lborder = $sizes{$type}->{'lborder'};
-  my $rborder = $sizes{$type}->{'rborder'};
-  my $tborder = $sizes{$type}->{'tborder'};
-  my $bborder = $sizes{$type}->{'bborder'};
-  my $xgrid = $sizes{$type}->{'xgrid'};
-  my $ygrid = $sizes{$type}->{'ygrid'};
+  my $xmax = $statistics_sizes{$type}->{'xmax'};
+  my $ymax = $statistics_sizes{$type}->{'ymax'};
+  my $lborder = $statistics_sizes{$type}->{'lborder'};
+  my $rborder = $statistics_sizes{$type}->{'rborder'};
+  my $tborder = $statistics_sizes{$type}->{'tborder'};
+  my $bborder = $statistics_sizes{$type}->{'bborder'};
+  my $xgrid = $statistics_sizes{$type}->{'xgrid'};
+  my $ygrid = $statistics_sizes{$type}->{'ygrid'};
 
   if (defined $file && ! defined $i) {
   	$i = Image::Xpm->new(-file => $file);
   };
 
-  my $value_stored = get_infostore($i);
+  my $value_stored = statistics_get_infostore($i);
 
   if ($type eq "receivedstatus") {
     if (defined $value) {
@@ -311,7 +304,7 @@ sub xpm_update($$$$;$) {
         };
       };
       $i->xy($lborder + ($value % $xmax), $tborder + (int($value / $xmax) % $ymax), $color_receivestatus_ok);
-      stamp_infostore($i, $value);
+      statistics_set_infostore($i, $value);
 
       logging("value: stored=" . $value_stored . " new=" . $value) if defined $config{'statistics'}->{'debug'};
     } else {
@@ -343,7 +336,7 @@ sub xpm_update($$$$;$) {
           $i->xy($lborder + ($g % $xmax), $tborder + (int($g / $xmax) % $ymax), $color_clear);
       };
 
-      stamp_infostore($i, $value_mod);
+      statistics_set_infostore($i, $value_mod);
 
       logging("value: stored=" . $value_stored . " new=" . $value_mod . " color=" . $color . " status=" . $data) if defined $config{'statistics'}->{'debug'};
     } else {
@@ -359,7 +352,7 @@ sub xpm_update($$$$;$) {
 
 ###(pixel in picture)
 ## store data into infostore
-sub stamp_infostore($$) {
+sub statistics_set_infostore($$) {
   my $i = shift;
   my $value = shift || 0;
 
@@ -375,7 +368,7 @@ sub stamp_infostore($$) {
 
 
 ## get data from infostore (pixel in picture)
-sub get_infostore($;$) {
+sub statistics_get_infostore($;$) {
   my $i = $_[0];
   my $file = $_[1]; # optional
 
@@ -399,7 +392,7 @@ sub get_infostore($;$) {
 ############
 ## init module
 ############
-sub init() {
+sub statistics_init() {
   if (defined $ENV{'TTN_LETTERBOX_DEBUG_GRAPHICS'}) {
     $config{'statistics'}->{'debug'} = 1;
   };
@@ -408,7 +401,7 @@ sub init() {
 };
 
 ## fill historical data of device
-sub fill_device($$$) {
+sub statistics_fill_device($$$) {
   my $dev_id = $_[0];
   my $file = $_[1];
   my $type = $_[2];
@@ -479,7 +472,7 @@ sub fill_device($$$) {
 
 	# loop
 	for my $value (sort { $a <=> $b } keys %values) {
-    xpm_update(undef, $type, $value, $values{$value}, $i);
+    statistics_xpm_update(undef, $type, $value, $values{$value}, $i);
 	};
 
   # finally save
@@ -488,7 +481,7 @@ sub fill_device($$$) {
 
 
 ## init device
-sub init_device($) {
+sub statistics_init_device($) {
   my $dev_id = $_[0];
 
   logging("Called: init_device with dev_id=" . $dev_id) if defined $config{'statistics'}->{'debug'};
@@ -499,15 +492,15 @@ sub init_device($) {
     logging("DEBUG : check for file: " . $file) if defined $config{'statistics'}->{'debug'};
     if (! -e $file) {
       logging("DEBUG : file missing, create now: " . $file) if defined $config{'statistics'}->{'debug'};
-      create_xpm($file, $type);
+      statistics_xpm_create($file, $type);
     } else {
       logging("DEBUG : file already existing: " . $file) if defined $config{'statistics'}->{'debug'};
     };
 
-    my $value = get_infostore(undef, $file);
+    my $value = statistics_get_infostore(undef, $file);
     if ($value == 0) {
       logging("DEBUG : file already existing but empty: " . $file) if defined $config{'statistics'}->{'debug'};
-      fill_device($dev_id, $file, $type);
+      statistics_fill_device($dev_id, $file, $type);
     } else {
       logging("DEBUG : file already existing and has value: " . $file . "#" . $value) if defined $config{'statistics'}->{'debug'};
     };
@@ -516,7 +509,7 @@ sub init_device($) {
 
 
 ## store data
-sub store_data($$$) {
+sub statistics_store_data($$$) {
   my $dev_id = $_[0];
   my $timeReceived = $_[1];
   my $content = $_[2];
@@ -548,12 +541,12 @@ sub store_data($$$) {
       $value = $timeReceived_ut;
     };
 
-    xpm_update($file, $type, $value, $values{$value}, undef);
+    statistics_xpm_update($file, $type, $value, $values{$value}, undef);
   };
 };
 
 ## get graphics
-sub get_graphics($) {
+sub statistics_get_graphics($) {
   my $dev_id = $_[0];
 
   my %html;
@@ -570,8 +563,8 @@ sub get_graphics($) {
       logging("DEBUG : file existing, export graphics: " . $file) if defined $config{'statistics'}->{'debug'};
       my $image = GD::Image->newFromXpm($file);
 
-      my $xscale = $sizes{$type}->{'xscale'};
-      my $yscale = $sizes{$type}->{'yscale'};
+      my $xscale = $statistics_sizes{$type}->{'xscale'};
+      my $yscale = $statistics_sizes{$type}->{'yscale'};
 
       if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
         # scale down on mobile devices
@@ -582,15 +575,15 @@ sub get_graphics($) {
       my $width = $image->width * $xscale;
       my $height = $image->height * $yscale;
 
-      my $lborder = $sizes{$type}->{'lborder'} * $xscale;
-      my $rborder = $sizes{$type}->{'rborder'} * $xscale;
-      my $tborder = $sizes{$type}->{'tborder'} * $yscale;
-      my $bborder = $sizes{$type}->{'bborder'} * $yscale;
+      my $lborder = $statistics_sizes{$type}->{'lborder'} * $xscale;
+      my $rborder = $statistics_sizes{$type}->{'rborder'} * $xscale;
+      my $tborder = $statistics_sizes{$type}->{'tborder'} * $yscale;
+      my $bborder = $statistics_sizes{$type}->{'bborder'} * $yscale;
 
-      my $xmax = $sizes{$type}->{'xmax'} * $yscale;
-      my $ymax = $sizes{$type}->{'ymax'} * $yscale;
+      my $xmax = $statistics_sizes{$type}->{'xmax'} * $yscale;
+      my $ymax = $statistics_sizes{$type}->{'ymax'} * $yscale;
 
-      my $dborder = $sizes{$type}->{'dborder'};
+      my $dborder = $statistics_sizes{$type}->{'dborder'};
       my $border = $dborder;
 
       if ($type eq "receivedstatus") {
@@ -605,17 +598,17 @@ sub get_graphics($) {
       my $text;
       my $textsize = 5;
 
-      $text = $sizes{$type}->{'ttext'};
+      $text = $statistics_sizes{$type}->{'ttext'};
       $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, 1, $text, $white);
 
-      $text = $sizes{$type}->{'ltext'};
+      $text = $statistics_sizes{$type}->{'ltext'};
       $image_scaled->stringUp(gdTinyFont, 1, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
 
       if ($type eq "receivedstatus") {
-        $text = $sizes{$type}->{'btext'};
+        $text = $statistics_sizes{$type}->{'btext'};
         $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, $height + $border - 9, $text, $white);
 
-        $text = $sizes{$type}->{'rtext'};
+        $text = $statistics_sizes{$type}->{'rtext'};
         $image_scaled->stringUp(gdTinyFont, $width + $dborder - 2, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
       };
 
