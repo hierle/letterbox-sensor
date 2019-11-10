@@ -71,7 +71,7 @@ my %sizes = (
       'xscale' => 3,
       'yscale' => 3,
       ,'ltext' => "Days",
-      ,'ttext' => "Hour Of Day",
+      ,'ttext' => "Hour Of Day (UTC)",
       'dborder' => 8, # description border
       'lborder' => 13,
       'rborder' => 5,
@@ -90,7 +90,7 @@ my %sizes = (
       ,'ltext' => "Days",
       ,'btext' => "Counter",
       ,'rtext' => "Counter",
-      ,'ttext' => "Hour Of Day",
+      ,'ttext' => "Hour Of Day (UTC)",
       'dborder' => 8, # description border
       'lborder' => 13,
       'rborder' => 21,
@@ -579,11 +579,18 @@ sub get_graphics($) {
         $yscale -= 1;
       };
 
-      my $dborder = $sizes{$type}->{'dborder'};
-
       my $width = $image->width * $xscale;
       my $height = $image->height * $yscale;
 
+      my $lborder = $sizes{$type}->{'lborder'} * $xscale;
+      my $rborder = $sizes{$type}->{'rborder'} * $xscale;
+      my $tborder = $sizes{$type}->{'tborder'} * $yscale;
+      my $bborder = $sizes{$type}->{'bborder'} * $yscale;
+
+      my $xmax = $sizes{$type}->{'xmax'} * $yscale;
+      my $ymax = $sizes{$type}->{'ymax'} * $yscale;
+
+      my $dborder = $sizes{$type}->{'dborder'};
       my $border = $dborder;
 
       if ($type eq "receivedstatus") {
@@ -595,18 +602,21 @@ sub get_graphics($) {
 
       my $white = $image_scaled->colorAllocate(255,255,255);
 
-      my $text = $sizes{$type}->{'ttext'};
-      my $textsize = 6;
-      $image_scaled->string(gdTinyFont, $width / 2 + $dborder - length($text)/2 * $textsize, 1, $text, $white);
+      my $text;
+      my $textsize = 5;
+
+      $text = $sizes{$type}->{'ttext'};
+      $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, 1, $text, $white);
 
       $text = $sizes{$type}->{'ltext'};
-      $image_scaled->stringUp(gdTinyFont, 1, $height / 2 + $dborder + length($text)/2 * $textsize, $text, $white);
+      $image_scaled->stringUp(gdTinyFont, 1, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
 
       if ($type eq "receivedstatus") {
         $text = $sizes{$type}->{'btext'};
-        $image_scaled->string(gdTinyFont, $width / 2 + $dborder - length($text)/2 * $textsize, $height + $border - 9, $text, $white);
+        $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, $height + $border - 9, $text, $white);
+
         $text = $sizes{$type}->{'rtext'};
-        $image_scaled->stringUp(gdTinyFont, $width + $dborder - 1, $height / 2 + $dborder + length($text)/2 * $textsize, $text, $white);
+        $image_scaled->stringUp(gdTinyFont, $width + $dborder - 2, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
       };
 
       my $png_base64 = encode_base64($image_scaled->png(9), "");
