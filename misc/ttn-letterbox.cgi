@@ -48,6 +48,10 @@
 #     - in case device is already registered without password, watch for hint in log
 #   - GET requests are currently NOT protected
 #
+# Supported Query String parameters
+#   - dev_id=<dev_id>
+#   - graphics=[on|off]
+#
 # Logging
 #   - warnings/errors will be logged to web server error log using "print STDERR"
 #
@@ -85,7 +89,7 @@
 # 20191104/bie: add deltaLastChanged and threshold per dev_id in config, change color in case lastReceived is above limits
 # 20191107/bie: fix+improve delta time calc+display
 # 20191110/bie: implement hooks for additional modules (statistics), minor reorg
-# 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks
+# 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks, add query string handling, add additional buttons for switching graphics on/off
 #
 # TODO:
 # - lock around file writes
@@ -133,6 +137,9 @@ our %config = (
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
   'debug'         => 0      # debug
 );
+
+# global data
+our %querystring;
 
 # set time strings
 my $nowstr = strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(time);
@@ -532,6 +539,24 @@ sub req_post() {
 ## handling GET request
 ##############
 sub req_get() {
+  ## simple query string parser
+  my $qs = $ENV{'QUERY_STRING'};
+  if(!defined $qs) {
+    # try from redirect
+    $qs = $ENV{'REDIRECT_QUERY_STRING'};
+  };
+
+  if(defined $qs) {
+    foreach my $query_stringlet (split /[\?\&]/, $qs) {
+      if ($query_stringlet !~ /^([[:alnum:]_]+)=([[:alnum:].\-:%+]+)$/) {
+        # ignore improper stringlet
+        next;
+      };
+
+      $querystring{$1} = $2;
+    };
+  };
+
   my @devices;
   if (-e $devfile) {
     # read devices
@@ -557,6 +582,11 @@ sub req_get() {
 
     my $dev_id = $1;
     my $hardware_serial = $2;
+
+    if (defined $querystring{'dev_id'} && $querystring{'dev_id'} ne $dev_id) {
+      # skip if not matching explicity given one
+      next;
+    };
 
     # fill with template
     my $lastfile = $lastfile_template;
@@ -680,11 +710,13 @@ sub req_get() {
     };
 
     ####################
-    for my $module (sort keys %hooks) {
-      if (defined $hooks{$module}->{'get_graphics'}) {
-        my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id);
-        for my $type (keys %graphics) {
-          $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
+    if (defined $querystring{'graphics'} && $querystring{'graphics'} eq "on") {
+      for my $module (sort keys %hooks) {
+        if (defined $hooks{$module}->{'get_graphics'}) {
+          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id);
+          for my $type (keys %graphics) {
+            $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
+          };
         };
       };
     };
@@ -761,51 +793,50 @@ sub response($$;$$) {
       if ($config{'autorefresh'} ne "0") {
         print "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
       };
+
+      # create filtered query string
+      my @qs_a;
+      my @qs_a_graphics;
+      my $qs = "";
+      my $qs_graphics = "";
+
+      for my $k (keys %querystring) {
+        push @qs_a, " <input type=\"text\" name=\"" . $k . "\" value=\"" . $querystring{$k} . "\" hidden>";
+        push @qs_a_graphics, " <input type=\"text\" name=\"" . $k . "\" value=\"" . $querystring{$k} . "\" hidden>" unless ($k eq "graphics");
+      };
+      $qs = "\n" . join("\n", @qs_a) if (scalar(@qs_a) > 0);
+      $qs_graphics = "\n" . join("\n", @qs_a_graphics) if (scalar(@qs_a_graphics) > 0);
+
       # print reload button
       print "<br />";
       print qq {
 <form method="get">
- <input type="submit" value="reload" style="width:200px;height:50px;">
+ <input type="submit" value="Reload" style="width:200px;height:50px;">$qs
+</form>
+};
+
+      # print graphics=on button
+      print "<br />";
+      print qq {
+<form method="get">
+ <input type="submit" value="Graphics ON" style="width:150px;height:50px;">$qs_graphics
+ <input type="text" name="graphics" value="on" hidden>
+</form>
+};
+
+      # print graphics=off button
+      print "<br />";
+      print qq {
+<form method="get">
+ <input type="submit" value="Graphics OFF" style="width:150px;height:50px;">$qs_graphics
+ <input type="text" name="graphics" value="off" hidden>
 </form>
 };
     };
 
     print "\n</body>\n</html>\n";
   };
-}
-
-
-## query string parser
-sub getqs{
-    my $qs = $ENV{'QUERY_STRING'};
-    ### dont nned this ;-)
-    if(!defined $qs) { $qs = $ENV{'REDIRECT_QUERY_STRING'}; }
-    if(!defined $qs) { return (); }
-
-    my @pairs = split(/\&/,$qs);
-    my $pair;
-    my $key;
-    my $value;
-    ###my $qsdata;
-    my @qsdata;
-    foreach $pair (@pairs)
-    {
-        ($key,$value) = split(/\=/,$pair);
-        if (!defined $value) { next; }
-        $value =~ s/\+/ /g;
-        $value =~ s/%([a-fA-F0-9][a-fA-F0-9])/pack("C", hex($1))/eg;
-        # $value =~ s/~!/ ~!/g;
-        $value =~ s/ +/ /g;
-        $value =~ s/^ +//g;
-        $value =~ s/ +$//g;
-        $value =~ s/\n//g;
-        $value =~ s/\r/\[ENTER\]/g;
-        push (@qsdata,$key);
-        push (@qsdata,$value);
-    }
-    if ($#qsdata >= 0) { return @qsdata; }
-    else { return (); }
-}
+};
 
 
 ## letterbox HTML generation
