@@ -9,6 +9,7 @@
 # Authors:  Dr. Peter Bieringer (bie)
 #
 # 20191110/bie: initial version
+# 20191111/bie: add support for snr/rssi
 
 use strict;
 use warnings;
@@ -38,7 +39,7 @@ $hooks{'rrd'}->{'store_data'} = \&rrd_store_data;
 
 
 ## statistics
-my @rrd = ("sensor", "voltage", "tempC"); # order must match RRD create definition
+my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
 
 
 ## sizes
@@ -54,6 +55,14 @@ my %rrd_config = (
   'voltage' => {
       'format' => '%5.3f',
       'color' => '#F000F0'
+  },
+  'rssi' => {
+      'format' => '%5.3f',
+      'color' => '#00F0F0'
+  },
+  'snr' => {
+      'format' => '%5.3f',
+      'color' => '#0080F0'
   }
 );
 
@@ -70,6 +79,8 @@ sub rrd_create($) {
     "DS:sensor:GAUGE:3600:0:U",
     "DS:voltage:GAUGE:3600:0:4",
     "DS:tempC:GAUGE:3600:-50:150",
+    "DS:rssi:GAUGE:3600:-300:0",
+    "DS:snr:GAUGE:3600:-99:99",
     "RRA:AVERAGE:0.5:1:4800",
     "RRA:MIN:0.5:12:4800",
     "RRA:MAX:0.5:12:4800"
@@ -159,6 +170,8 @@ sub rrd_fill_device($$) {
       $values{$timeReceived_ut}->{'voltage'} = $content->{'payload_fields'}->{'voltage'};
       $values{$timeReceived_ut}->{'sensor'} = $content->{'payload_fields'}->{'sensor'};
       $values{$timeReceived_ut}->{'tempC'} = $content->{'payload_fields'}->{'tempC'};
+      $values{$timeReceived_ut}->{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
+      $values{$timeReceived_ut}->{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
     };
   };
 
@@ -205,6 +218,8 @@ sub rrd_store_data($$$) {
   $values{'voltage'} = $content->{'payload_fields'}->{'voltage'};
   $values{'sensor'} = $content->{'payload_fields'}->{'sensor'};
   $values{'tempC'} = $content->{'payload_fields'}->{'tempC'};
+  $values{$timeReceived_ut}->{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
+  $values{$timeReceived_ut}->{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
 
   rrd_update($file, $timeReceived_ut, \%values);
 };
