@@ -85,6 +85,7 @@
 # 20191104/bie: add deltaLastChanged and threshold per dev_id in config, change color in case lastReceived is above limits
 # 20191107/bie: fix+improve delta time calc+display
 # 20191110/bie: implement hooks for additional modules (statistics), minor reorg
+# 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks
 #
 # TODO:
 # - lock around file writes
@@ -477,6 +478,7 @@ sub req_post() {
         $filledtime_write = 1; 
         # adjust status
         $lines[0] =~ s/"full"/"filled"/o;
+        $content->{'payload_fields'}->{'box'} = "filled";
       };
     } elsif ($content->{'payload_fields'}->{'box'} eq "empty") {
       # box is empty
@@ -485,6 +487,7 @@ sub req_post() {
         $emptiedtime_write = 1;
         # adjust status
         $lines[0] =~ s/"empty"/"emptied"/o;
+        $content->{'payload_fields'}->{'box'} = "emptied";
       };
     };
   };
