@@ -9,7 +9,7 @@
 # Authors:  Dr. Peter Bieringer (bie)
 #
 # 20191110/bie: initial version
-# 20191111/bie: add support for snr/rssi
+# 20191111/bie: add support for snr/rssi, change RRD font render mode
 
 use strict;
 use warnings;
@@ -262,6 +262,7 @@ sub rrd_get_graphics($) {
           "--width=" . $width,
           "--height=" . $height,
           "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
+          "--font-render-mode=mono",
           "--logarithmic",
           "--units=si",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
@@ -274,6 +275,7 @@ sub rrd_get_graphics($) {
           "--width=" . $width,
           "--height=" . $height,
           "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
+          "--font-render-mode=mono",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
           "LINE1:" . $type . $color . ":" . $type
         );
