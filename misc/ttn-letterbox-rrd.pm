@@ -10,6 +10,7 @@
 #
 # 20191110/bie: initial version
 # 20191111/bie: add support for snr/rssi, change RRD font render mode
+# 20191112/bie: rework button implementation
 
 use strict;
 use warnings;
@@ -27,8 +28,9 @@ our %config;
 ## prototyping
 sub rrd_init();
 sub rrd_init_device($);
-sub rrd_get_graphics($);
+sub rrd_get_graphics($$);
 sub rrd_store_data($$$);
+sub rrd_html_actions($);
 
 
 ## hooks
@@ -36,6 +38,8 @@ $hooks{'rrd'}->{'init'} = \&rrd_init;
 $hooks{'rrd'}->{'init_device'} = \&rrd_init_device;
 $hooks{'rrd'}->{'get_graphics'} = \&rrd_get_graphics;
 $hooks{'rrd'}->{'store_data'} = \&rrd_store_data;
+$hooks{'rrd'}->{'store_data'} = \&rrd_store_data;
+$hooks{'rrd'}->{'html_actions'} = \&rrd_html_actions;
 
 
 ## statistics
@@ -218,14 +222,14 @@ sub rrd_store_data($$$) {
   $values{'voltage'} = $content->{'payload_fields'}->{'voltage'};
   $values{'sensor'} = $content->{'payload_fields'}->{'sensor'};
   $values{'tempC'} = $content->{'payload_fields'}->{'tempC'};
-  $values{$timeReceived_ut}->{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
-  $values{$timeReceived_ut}->{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
+  $values{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
+  $values{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
 
   rrd_update($file, $timeReceived_ut, \%values);
 };
 
 ## get graphics
-sub rrd_get_graphics($) {
+sub rrd_get_graphics($$) {
   my $dev_id = $_[0];
 
   my %html;
@@ -300,4 +304,70 @@ sub rrd_get_graphics($) {
     };
   };
   return %html;
+};
+
+
+## HTML actions
+sub rrd_html_actions($) {
+  my $querystring_hp = $_[0];
+
+  # default
+  if (! defined $querystring_hp->{'rrdRange'} || $querystring_hp->{'rrdRange'} !~ /^(day|week|month|year)$/o) {
+    $querystring_hp->{'rrdRange'} = "day";
+  };
+
+  if (! defined $querystring_hp->{'rrd'} || $querystring_hp->{'rrd'} !~ /^(on|off)$/o) {
+    $querystring_hp->{'rrd'} = "off";
+  };
+
+  my $querystring = { %$querystring_hp }; # copy for form
+
+  my $toggle_color;
+
+  my $response = "";
+
+  $response .= "  <td>\n";
+
+  if ($querystring_hp->{'rrd'} eq "off") {
+    $querystring->{'rrd'} = "on";
+    $toggle_color = "#E0E0E0";
+  } else {
+    $querystring->{'rrd'} = "off";
+    $toggle_color = "#00E000";
+  };
+
+  $response .= "   <form method=\"get\">\n";
+  $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  for my $key (sort keys %$querystring) {
+    $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+  };
+  $response .= "   </form>\n";
+  $response .= "  </td>\n";
+
+  # timerange buttons
+  if ($querystring_hp->{'rrd'} eq "on") {
+    $querystring = { %$querystring_hp }; # copy for form
+
+    for my $rrdRange ("day", "week", "month", "year") {
+      if ($querystring_hp->{'rrdRange'} eq $rrdRange) {
+        $toggle_color = "#00E000";
+      } else {
+        $toggle_color = "#E0E0E0";
+      };
+
+      $querystring->{'rrdRange'} = $rrdRange;
+
+      $response .= "  <td>\n";
+      $response .= "   <form method=\"get\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $rrdRange . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:50px;\">\n";
+      for my $key (sort keys %$querystring) {
+        $response .= " <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+      };
+      $response .= "   </form>\n";
+
+      $response .= "  </td>\n";
+    };
+  };
+
+  return $response;
 };

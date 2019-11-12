@@ -16,6 +16,7 @@
 # 20191108/bie: enable as plugin module
 # 20191109/bie: add hooks for inline graphics
 # 20191110/bie: add scaling and description
+# 20191112/bie: rework button implementation
 
 use strict;
 use warnings;
@@ -33,8 +34,9 @@ our %config;
 ## prototyping
 sub statistics_init();
 sub statistics_init_device($);
-sub statistics_get_graphics($);
+sub statistics_get_graphics($$);
 sub statistics_store_data($$$);
+sub statistics_html_actions($);
 
 
 ## hooks
@@ -42,6 +44,7 @@ $hooks{'statistics'}->{'init'} = \&statistics_init;
 $hooks{'statistics'}->{'init_device'} = \&statistics_init_device;
 $hooks{'statistics'}->{'get_graphics'} = \&statistics_get_graphics;
 $hooks{'statistics'}->{'store_data'} = \&statistics_store_data;
+$hooks{'statistics'}->{'html_actions'} = \&statistics_html_actions;
 
 
 ## statistics
@@ -546,7 +549,7 @@ sub statistics_store_data($$$) {
 };
 
 ## get graphics
-sub statistics_get_graphics($) {
+sub statistics_get_graphics($$) {
   my $dev_id = $_[0];
 
   my %html;
@@ -617,4 +620,41 @@ sub statistics_get_graphics($) {
     };
   };
   return %html;
+};
+
+
+## HTML actions
+sub statistics_html_actions($) {
+  my $querystring_hp = $_[0];
+
+  # default
+  if (! defined $querystring_hp->{'statistics'} || $querystring_hp->{'statistics'} !~ /^(on|off)$/o) {
+    $querystring_hp->{'statistics'} = "off";
+  };
+
+  my $querystring = { %$querystring_hp }; # copy for form
+
+  my $toggle_color;
+
+  my $response = "";
+
+  $response .= "  <td>\n";
+
+  if ($querystring_hp->{'statistics'} eq "off") {
+    $querystring->{'statistics'} = "on";
+    $toggle_color = "#E0E0E0";
+  } else {
+    $querystring->{'statistics'} = "off";
+    $toggle_color = "#00E000";
+  };
+
+  $response .= "   <form method=\"get\">\n";
+  $response .= "    <input type=\"submit\" value=\"Statistics\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  for my $key (sort keys %$querystring) {
+    $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+  };
+  $response .= "   </form>\n";
+  $response .= "  </td>\n";
+
+  return $response;
 };

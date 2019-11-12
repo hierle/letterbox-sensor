@@ -90,6 +90,7 @@
 # 20191107/bie: fix+improve delta time calc+display
 # 20191110/bie: implement hooks for additional modules (statistics), minor reorg
 # 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks, add query string handling, add additional buttons for switching graphics on/off
+# 20191112/bie: rework button implementation
 #
 # TODO:
 # - lock around file writes
@@ -710,10 +711,10 @@ sub req_get() {
     };
 
     ####################
-    if (defined $querystring{'graphics'} && $querystring{'graphics'} eq "on") {
-      for my $module (sort keys %hooks) {
-        if (defined $hooks{$module}->{'get_graphics'}) {
-          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id);
+    for my $module (sort keys %hooks) {
+      if (defined $hooks{$module}->{'get_graphics'}) {
+        if (defined $querystring{$module} && $querystring{$module} eq "on") {
+          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id, \%querystring);
           for my $type (keys %graphics) {
             $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
           };
@@ -790,48 +791,6 @@ sub response($$;$$) {
     print "$message";
 
     if (defined $reqm && $reqm eq "GET" && $status eq "200") {
-      if ($config{'autorefresh'} ne "0") {
-        print "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
-      };
-
-      # create filtered query string
-      my @qs_a;
-      my @qs_a_graphics;
-      my $qs = "";
-      my $qs_graphics = "";
-
-      for my $k (keys %querystring) {
-        push @qs_a, " <input type=\"text\" name=\"" . $k . "\" value=\"" . $querystring{$k} . "\" hidden>";
-        push @qs_a_graphics, " <input type=\"text\" name=\"" . $k . "\" value=\"" . $querystring{$k} . "\" hidden>" unless ($k eq "graphics");
-      };
-      $qs = "\n" . join("\n", @qs_a) if (scalar(@qs_a) > 0);
-      $qs_graphics = "\n" . join("\n", @qs_a_graphics) if (scalar(@qs_a_graphics) > 0);
-
-      # print reload button
-      print "<br />";
-      print qq {
-<form method="get">
- <input type="submit" value="Reload" style="width:200px;height:50px;">$qs
-</form>
-};
-
-      # print graphics=on button
-      print "<br />";
-      print qq {
-<form method="get">
- <input type="submit" value="Graphics ON" style="width:150px;height:50px;">$qs_graphics
- <input type="text" name="graphics" value="on" hidden>
-</form>
-};
-
-      # print graphics=off button
-      print "<br />";
-      print qq {
-<form method="get">
- <input type="submit" value="Graphics OFF" style="width:150px;height:50px;">$qs_graphics
- <input type="text" name="graphics" value="off" hidden>
-</form>
-};
     };
 
     print "\n</body>\n</html>\n";
@@ -844,13 +803,71 @@ sub letter($) {
   my $dev_hash_p = shift;
   my $num_boxes = scalar(keys %$dev_hash_p);
 
-  my $response;
+  my $response = "";
   my $bg;
   my $fc;
 
   my $has_graphics = 0;
 
-  $response = "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  ## buttons
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= " <tr>\n";
+
+  # print reload button
+  $response .= "  <td>\n";
+  $response .= "   <form method=\"get\">\n";
+  $response .= "    <input type=\"submit\" value=\"Reload\" style=\"background-color:#E0E000;width:150px;height:50px;\">\n";
+  for my $key (sort keys %querystring) {
+    $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
+  };
+  $response .= "   </form>\n";
+  $response .= "  </td>\n";
+
+  # print details=on|off button
+  my $querystring_copy = { %querystring };
+  my $toggle_color;
+
+  if (!defined $querystring{'details'} || $querystring{'details'} !~ /^(on|off)$/o) {
+    $querystring{'details'} = "off";
+  };
+
+  if ($querystring{'details'} eq "off") {
+    $querystring_copy->{'details'} = "on";
+    $toggle_color = "#E0E0E0";
+  } else {
+    $querystring_copy->{'details'} = "off";
+    $toggle_color = "#00E000";
+  };
+
+  $response .= "  <td>\n";
+  $response .= "   <form method=\"get\">\n";
+  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  for my $key (sort keys %$querystring_copy) {
+    $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
+  };
+  $response .= "   </form>\n";
+  $response .= "  </td>\n";
+
+
+  # html action per module
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'html_actions'}) {
+      $response .= $hooks{$module}->{'html_actions'}->(\%querystring);
+    };
+  };
+
+  $response .= " </tr>\n";
+  $response .= "</table>\n";
+
+  if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
+    $response .= "<br />\n";
+  } elsif ($config{'autorefresh'} ne "0") {
+    $response .= "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
+  } else {
+    $response .= "<br />\n";
+  };
+
+  $response .= "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">\n";
 
   $response .= " <tr>";
 
@@ -876,6 +893,8 @@ sub letter($) {
 
   # row 3+
   for my $info (@info_array) {
+    next if ((! defined $querystring{'details'} || $querystring{'details'} eq "off") && $info !~ /^(time|delta)/o);
+
     $response .= " <tr>";
     $response .= "<td><font size=-1>" . $info . "</font></td>";
 
