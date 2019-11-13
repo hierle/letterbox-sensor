@@ -11,6 +11,7 @@
 # 20191110/bie: initial version
 # 20191111/bie: add support for snr/rssi, change RRD font render mode
 # 20191112/bie: rework button implementation
+# 20191113/bie: implement rrdRange support, adjust rrd database
 
 use strict;
 use warnings;
@@ -71,6 +72,27 @@ my %rrd_config = (
 );
 
 
+## ranges
+my %rrd_range = (
+  'day' => {
+      'start' => 'end-24h',
+      'xgrid' => "HOUR:1:HOUR:6:HOUR:2:3600:%H",
+  },
+  'week' => {
+      'start' => 'end-7d',
+      'xgrid' => "HOUR:6:DAY:1:DAY:1:86400:%d",
+  },
+  'month' => {
+      'start' => 'end-1M',
+      'xgrid' => "DAY:1:WEEK:1:DAY:7:86400:%d",
+  },
+  'year' => {
+      'start' => 'end-1y',
+      'xgrid' => "MONTH:1:MONTH:1:MONTH:1:86400:%m",
+  }
+);
+
+
 ### create new RRD
 sub rrd_create($) {
   my $file = $_[0];
@@ -86,8 +108,14 @@ sub rrd_create($) {
     "DS:rssi:GAUGE:3600:-300:0",
     "DS:snr:GAUGE:3600:-99:99",
     "RRA:AVERAGE:0.5:1:4800",
-    "RRA:MIN:0.5:12:4800",
-    "RRA:MAX:0.5:12:4800"
+    "RRA:MIN:0.5:1:4800",
+    "RRA:MAX:0.5:1:4800",
+    "RRA:AVERAGE:0.5:30m:1M",
+    "RRA:MIN:0.5:30m:1M",
+    "RRA:MAX:0.5:30m:1M",
+    "RRA:AVERAGE:0.5:8h:1y",
+    "RRA:MIN:0.5:8h:1y",
+    "RRA:MAX:0.5:8h:1y"
   );
 
   my $ERR=RRDs::error;
@@ -228,15 +256,19 @@ sub rrd_store_data($$$) {
   rrd_update($file, $timeReceived_ut, \%values);
 };
 
+
 ## get graphics
 sub rrd_get_graphics($$) {
   my $dev_id = $_[0];
+  my $querystring_hp = $_[1];
 
   my %html;
 
   logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'rrd'}->{'debug'};
 
   my $file = $config{'datadir'} . "/ttn." . $dev_id . ".rrd";
+
+  my $rrdRange = $querystring_hp->{'rrdRange'} || "day";
 
   logging("DEBUG : check for file: " . $file) if defined $config{'rrd'}->{'debug'};
   if (! -e $file) {
@@ -251,34 +283,42 @@ sub rrd_get_graphics($$) {
 
       my $width = 260;
       my $height = 80;
-      my $start = "end-14d";
+      my $start = $rrd_range{$rrdRange}->{'start'};
+      my $xgrid = $rrd_range{$rrdRange}->{'xgrid'};
+      my $title = $rrdRange;
+      my $label = $type;
 
       if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
         $width = 140;
         $height = 50;
-        $start = "end-7d";
       };
 
       if ($type eq "sensor") {
         RRDs::graph($output,
+          "--title=" . $title,
+          "--vertical-label=" . $label,
+          "--no-legend",
           "--end=now",
           "--start=" . $start,
           "--width=" . $width,
           "--height=" . $height,
-          "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
+          "--x-grid=" . $xgrid,
           "--font-render-mode=mono",
           "--logarithmic",
           "--units=si",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
-          "LINE1:" . $type . $color . ":" . $type
+          "LINE1:" . $type . $color . ":" . $type,
         );
       } else {
         RRDs::graph($output,
+          "--title=" . $title,
+          "--vertical-label=" . $label,
+          "--no-legend",
           "--end=now",
           "--start=" . $start,
           "--width=" . $width,
           "--height=" . $height,
-          "--x-grid=HOUR:12:DAY:1:DAY:1:86400:%d",
+          "--x-grid=" . $xgrid,
           "--font-render-mode=mono",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
           "LINE1:" . $type . $color . ":" . $type
@@ -337,7 +377,7 @@ sub rrd_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
   };
@@ -359,7 +399,7 @@ sub rrd_html_actions($) {
 
       $response .= "  <td>\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $rrdRange . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:50px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $rrdRange . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:40px;\">\n";
       for my $key (sort keys %$querystring) {
         $response .= " <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
