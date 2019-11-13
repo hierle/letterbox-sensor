@@ -649,7 +649,7 @@ sub statistics_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Statistics\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"Statistics\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
   };
