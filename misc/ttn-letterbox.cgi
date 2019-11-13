@@ -91,6 +91,7 @@
 # 20191110/bie: implement hooks for additional modules (statistics), minor reorg
 # 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks, add query string handling, add additional buttons for switching graphics on/off
 # 20191112/bie: rework button implementation
+# 20191113/bie: implement auto-reload button
 #
 # TODO:
 # - lock around file writes
@@ -808,8 +809,10 @@ sub letter($) {
   my $fc;
 
   my $has_graphics = 0;
+  my $querystring_copy;
+  my $toggle_color;
 
-  ## buttons
+  ## button row #1
   $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
   $response .= " <tr>\n";
 
@@ -823,14 +826,28 @@ sub letter($) {
   $response .= "   </form>\n";
   $response .= "  </td>\n";
 
-  # print details=on|off button
-  my $querystring_copy = { %querystring };
-  my $toggle_color;
-
-  if (!defined $querystring{'details'} || $querystring{'details'} !~ /^(on|off)$/o) {
-    $querystring{'details'} = "off";
+  # print autoreload=on|off button
+  $querystring_copy = { %querystring };
+  $querystring{'autoreload'} = "off" if (!defined $querystring{'autoreload'} || $querystring{'autoreload'} !~ /^(on|off)$/o);
+  if ($querystring{'autoreload'} eq "off") {
+    $querystring_copy->{'autoreload'} = "on";
+    $toggle_color = "#E0E0E0";
+  } else {
+    $querystring_copy->{'autoreload'} = "off";
+    $toggle_color = "#E0E000";
   };
+  $response .= "  <td>\n";
+  $response .= "   <form method=\"get\">\n";
+  $response .= "    <input type=\"submit\" value=\"Autoreload\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  for my $key (sort keys %$querystring_copy) {
+    $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
+  };
+  $response .= "   </form>\n";
+  $response .= "  </td>\n";
 
+  # print details=on|off button
+  $querystring_copy = { %querystring };
+  $querystring{'details'} = "off" if (!defined $querystring{'details'} || $querystring{'details'} !~ /^(on|off)$/o);
   if ($querystring{'details'} eq "off") {
     $querystring_copy->{'details'} = "on";
     $toggle_color = "#E0E0E0";
@@ -838,7 +855,6 @@ sub letter($) {
     $querystring_copy->{'details'} = "off";
     $toggle_color = "#00E000";
   };
-
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
   $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
@@ -848,6 +864,12 @@ sub letter($) {
   $response .= "   </form>\n";
   $response .= "  </td>\n";
 
+  $response .= " </tr>\n";
+  $response .= "</table>\n";
+
+  ## button row #2
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= " <tr>\n";
 
   # html action per module
   for my $module (sort keys %hooks) {
@@ -857,11 +879,12 @@ sub letter($) {
   };
 
   $response .= " </tr>\n";
+
   $response .= "</table>\n";
 
   if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
     $response .= "<br />\n";
-  } elsif ($config{'autorefresh'} ne "0") {
+  } elsif (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
     $response .= "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
   } else {
     $response .= "<br />\n";
@@ -966,9 +989,9 @@ sub letter($) {
   $response .= "</table>\n";
 
   # autoreload header
-  my $header = '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
-  if (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0") {
-    $header .= '<meta HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
+  my $header = ' <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
+  if (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
+    $header .= ' <meta HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
   };
 
   response(200, $response, $header);
