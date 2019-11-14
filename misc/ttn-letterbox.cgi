@@ -48,9 +48,11 @@
 #     - in case device is already registered without password, watch for hint in log
 #   - GET requests are currently NOT protected
 #
-# Supported Query String parameters
+# Supported Query String parameters (main, for modules see there)
+#   QUERY_STRING from CGI env + HTTP_TTN_LETTERBOX_QUERY_STRING from mod_include
 #   - dev_id=<dev_id>
-#   - graphics=[on|off]
+#   - details=[on|off]
+#   - autoreload=[on|off]
 #
 # Logging
 #   - warnings/errors will be logged to web server error log using "print STDERR"
@@ -92,6 +94,7 @@
 # 20191111/bie: add adjusted status filled/emptied also to content hash to be used by data update hooks, add query string handling, add additional buttons for switching graphics on/off
 # 20191112/bie: rework button implementation
 # 20191113/bie: implement auto-reload button
+# 20191114/bie: add support for HTTP_TTN_LETTERBOX_QUERY_STRING (SSI/mod_include), change color of Reload button
 #
 # TODO:
 # - lock around file writes
@@ -543,12 +546,21 @@ sub req_post() {
 sub req_get() {
   ## simple query string parser
   my $qs = $ENV{'QUERY_STRING'};
-  if(!defined $qs) {
+  if (!defined $qs) {
     # try from redirect
     $qs = $ENV{'REDIRECT_QUERY_STRING'};
   };
 
-  if(defined $qs) {
+  # append optional TTN_LETTERBOX_QUERY_STRING (e.g. provided by SSI/mod_include)
+  if (defined $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'}) {
+    if (defined $qs && length($qs) > 0) {
+      $qs .= "&" . $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'};
+    } else {
+      $qs = $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'};
+    };
+  };
+
+  if (defined $qs) {
     foreach my $query_stringlet (split /[\?\&]/, $qs) {
       if ($query_stringlet !~ /^([[:alnum:]_]+)=([[:alnum:].\-:%+]+)$/) {
         # ignore improper stringlet
@@ -819,7 +831,7 @@ sub letter($) {
   # print reload button
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Reload\" style=\"background-color:#E0E000;width:150px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"Reload\" style=\"background-color:#DEB887;width:150px;height:50px;\">\n";
   for my $key (sort keys %querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
   };
