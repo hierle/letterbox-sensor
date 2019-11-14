@@ -8,10 +8,15 @@
 #
 # Authors:  Dr. Peter Bieringer (bie)
 #
+# Supported Query String parameters
+#   - rrd=[on|off]
+#   - rrdRange=[day|week|month|year]
+#
 # 20191110/bie: initial version
 # 20191111/bie: add support for snr/rssi, change RRD font render mode
 # 20191112/bie: rework button implementation
 # 20191113/bie: implement rrdRange support, adjust rrd database
+# 20191114/bie: change colors of rrdRange buttons, use different xgrid for mobile devices
 
 use strict;
 use warnings;
@@ -76,19 +81,23 @@ my %rrd_config = (
 my %rrd_range = (
   'day' => {
       'start' => 'end-24h',
-      'xgrid' => "HOUR:1:HOUR:6:HOUR:2:3600:%H",
+      'xgrid' => "HOUR:1:HOUR:6:HOUR:2:0:%H",
+      'xgrid_mobile' => "HOUR:1:HOUR:6:HOUR:4:0:%H"
   },
   'week' => {
       'start' => 'end-7d',
       'xgrid' => "HOUR:6:DAY:1:DAY:1:86400:%d",
+      'xgrid_mobile' => "HOUR:6:DAY:1:DAY:1:86400:%d"
   },
   'month' => {
       'start' => 'end-1M',
-      'xgrid' => "DAY:1:WEEK:1:DAY:7:86400:%d",
+      'xgrid' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
+      'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:CW %V"
   },
   'year' => {
       'start' => 'end-1y',
-      'xgrid' => "MONTH:1:MONTH:1:MONTH:1:86400:%m",
+      'xgrid' => "MONTH:1:MONTH:1:MONTH:1:0:%m",
+      'xgrid_mobile' => "MONTH:1:MONTH:1:MONTH:2:0:%m"
   }
 );
 
@@ -291,6 +300,7 @@ sub rrd_get_graphics($$) {
       if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
         $width = 140;
         $height = 50;
+        $xgrid = $rrd_range{$rrdRange}->{'xgrid_mobile'};
       };
 
       if ($type eq "sensor") {
@@ -390,7 +400,7 @@ sub rrd_html_actions($) {
 
     for my $rrdRange ("day", "week", "month", "year") {
       if ($querystring_hp->{'rrdRange'} eq $rrdRange) {
-        $toggle_color = "#00E000";
+        $toggle_color = "#00BFFF";
       } else {
         $toggle_color = "#E0E0E0";
       };
