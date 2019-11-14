@@ -10,6 +10,9 @@
 #
 # digitFontPattern/paint taken from http://ip.bieringer.de/cgn-test.html
 #
+# Supported Query String parameters
+#   - statistics=[on|off]
+#
 # 20191101/bie: initial version
 # 20191102/bie: major enhancement, support receivestatus and time+status
 # 20191105/bie: paint x/y numbers
