@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="/favicon.ico" rel="SHORTCUT ICON">
+  <title><!--#echo var="SERVER_NAME" --> - TTN Letter Box</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--#if expr="v('QUERY_STRING') =~ /^(.*&)?autoreload=on(&.*)?$/" -->
+    <meta HTTP-EQUIV="refresh" CONTENT="900">
+  <!--#endif -->
+</head>
+<body>
+<h1>TTN Letter Box Status</h1>
+<!--#if expr="v('QUERY_STRING') =~ /^(.*&)?autoreload=on(&.*)?$/" -->
+<small><i>automatic refresh active every 900 seconds</i></small>
+<!--#endif -->
+<!-- set var="HTTP_TTN_LETTERBOX_QUERY_STRING" value="dev_id=PREFERRED-SENSOR-NAME-IN-CASE-MORE-ARE-REGISTERED" -->
+<!--#exec cgi="/cgi-bin/ttn-letterbox.cgi" -->
+</body>
+</html>
+
