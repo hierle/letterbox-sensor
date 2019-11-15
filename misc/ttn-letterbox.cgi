@@ -95,6 +95,7 @@
 # 20191112/bie: rework button implementation
 # 20191113/bie: implement auto-reload button
 # 20191114/bie: add support for HTTP_TTN_LETTERBOX_QUERY_STRING (SSI/mod_include), change color of Reload button
+# 20191115/bie: cosmetic name change
 #
 # TODO:
 # - lock around file writes
@@ -247,7 +248,7 @@ my $filledfile_template = "$datadir/ttn.DEV_ID.filled.time.status";
 my $emptiedfile_template = "$datadir/ttn.DEV_ID.emptied.time.status";
 
 # list and order of info rows in output
-my @info_array = ('timeNow', 'deltaLastChanged', 'deltaLastReceived', 'timeLastReceived', 'timeFilled', 'timeEmptied', 'sensor', 'threshold', 'tempC', 'voltage', 'rssi', 'snr', 'counter', 'hardwareSerial');
+my @info_array = ('timeNow', 'deltaLastChanged', 'deltaLastReceived', 'timeLastReceived', 'timeLastFilled', 'timeLastEmptied', 'sensor', 'threshold', 'tempC', 'voltage', 'rssi', 'snr', 'counter', 'hardwareSerial');
 
 # definitions
 my %dev_hash;
@@ -678,21 +679,21 @@ sub req_get() {
     my ($timeLastChange, $typeLastChange); 
 
     if (defined $filledtime_ut) {
-      $dev_hash{$dev_id}->{'info'}->{'timeFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
+      $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
       $timeLastChange = $filledtime_ut;
       $typeLastChange = "Filled";
     } else {
-      $dev_hash{$dev_id}->{'info'}->{'timeFilled'} = "n/a";
+      $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = "n/a";
     };
 
     if (defined $emptiedtime_ut) {
-      $dev_hash{$dev_id}->{'info'}->{'timeEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
+      $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
       if ($emptiedtime_ut > $timeLastChange) {
         $timeLastChange = $emptiedtime_ut;
         $typeLastChange = "Emptied";
       };
     } else {
-      $dev_hash{$dev_id}->{'info'}->{'timeEmptied'} = "n/a";
+      $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = "n/a";
     };
 
     $dev_hash{$dev_id}->{'info'}->{'timeNow'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
