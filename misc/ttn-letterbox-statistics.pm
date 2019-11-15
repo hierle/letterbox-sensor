@@ -20,6 +20,7 @@
 # 20191109/bie: add hooks for inline graphics
 # 20191110/bie: add scaling and description
 # 20191112/bie: rework button implementation
+# 20191115/bie: remove hour/days from receivedstatus graphics
 
 use strict;
 use warnings;
@@ -86,15 +87,13 @@ my %statistics_sizes = (
       'ydiv' => 1,
       'xscale' => 3,
       'yscale' => 3,
-      ,'ltext' => "Days (rollover)",
-      ,'btext' => "Counter (rollover)",
-      ,'rtext' => "Counter (rollover)",
-      ,'ttext' => "Hour Of Day (UTC)",
+      ,'ltext' => "Counter (rollover)",
+      ,'ttext' => "Counter (rollover)",
       'dborder' => 8, # description border
-      'lborder' => 13,
-      'rborder' => 21,
+      'lborder' => 21,
+      'rborder' => 5,
       'tborder' => 11,
-      'bborder' => 11
+      'bborder' => 5
   }
 );
 
@@ -227,7 +226,7 @@ sub statistics_xpm_create($$) {
 
   # draw x top number
 	for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-		statistics_paintNumber($i, $x + $lborder - 1, 2, int($x / $xdiv), $color_number);
+    statistics_paintNumber($i, $x + $lborder - 1, 2, $x, $color_number);
 	  # draw x ticks number
 		$i->xy($x + $lborder, $tborder - 2 , $color_ticks);
 		$i->xy($x + $lborder, $height - $bborder + 1 , $color_ticks);
@@ -247,24 +246,11 @@ sub statistics_xpm_create($$) {
 
   # draw y left number
 	for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-		statistics_paintNumber($i, 2, $y + $tborder - 1, int($y / $ydiv), $color_number);
+    statistics_paintNumber($i, 2, $y + $tborder - 1, $y * $xmax, $color_number);
 	  # draw y ticks number
 		$i->xy(0 + $lborder - 2, $y + $tborder, $color_ticks);
 		$i->xy($width - $rborder + 1, $y + $tborder, $color_ticks);
 	};
-
-  if ($type eq "receivedstatus") {
-    # draw x bottom number
-    for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-      statistics_paintNumber($i, $x + $lborder - 1, $height - $bborder + 4, $x, $color_number);
-    };
-
-    # draw y right number
-    for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-      statistics_paintNumber($i, $width - $rborder + 4, $y + $tborder - 1, $y * $xmax, $color_number);
-    };
-  };
-
 
   # reset infostore
 	statistics_set_infostore($i, 0);
@@ -592,10 +578,6 @@ sub statistics_get_graphics($$) {
       my $dborder = $statistics_sizes{$type}->{'dborder'};
       my $border = $dborder;
 
-      if ($type eq "receivedstatus") {
-        $border += $dborder
-      };
-
       my $image_scaled = GD::Image->new($width + $border, $height + $border);
       $image_scaled->copyResized($image, $dborder, $dborder, 0, 0, $width, $height, $image->width, $image->height);
 
@@ -609,14 +591,6 @@ sub statistics_get_graphics($$) {
 
       $text = $statistics_sizes{$type}->{'ltext'};
       $image_scaled->stringUp(gdTinyFont, 1, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
-
-      if ($type eq "receivedstatus") {
-        $text = $statistics_sizes{$type}->{'btext'};
-        $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, $height + $border - 9, $text, $white);
-
-        $text = $statistics_sizes{$type}->{'rtext'};
-        $image_scaled->stringUp(gdTinyFont, $width + $dborder - 2, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
-      };
 
       my $png_base64 = encode_base64($image_scaled->png(9), "");
       $html{$type} = '<img alt="' . $type . '" src="data:image/png;base64,' . $png_base64 . '">';
