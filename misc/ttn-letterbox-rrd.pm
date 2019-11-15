@@ -17,6 +17,7 @@
 # 20191112/bie: rework button implementation
 # 20191113/bie: implement rrdRange support, adjust rrd database
 # 20191114/bie: change colors of rrdRange buttons, use different xgrid for mobile devices
+# 20191115/bie: remove border of RRD to get it smaller
 
 use strict;
 use warnings;
@@ -313,6 +314,7 @@ sub rrd_get_graphics($$) {
           "--width=" . $width,
           "--height=" . $height,
           "--x-grid=" . $xgrid,
+          "--border=0",
           "--font-render-mode=mono",
           "--logarithmic",
           "--units=si",
@@ -329,6 +331,7 @@ sub rrd_get_graphics($$) {
           "--width=" . $width,
           "--height=" . $height,
           "--x-grid=" . $xgrid,
+          "--border=0",
           "--font-render-mode=mono",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
           "LINE1:" . $type . $color . ":" . $type
