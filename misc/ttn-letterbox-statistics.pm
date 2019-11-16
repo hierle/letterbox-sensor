@@ -21,6 +21,7 @@
 # 20191110/bie: add scaling and description
 # 20191112/bie: rework button implementation
 # 20191115/bie: remove hour/days from receivedstatus graphics
+# 20191116/bie: improve filled/empty detection on initialization
 
 use strict;
 use warnings;
@@ -439,21 +440,8 @@ sub statistics_fill_device($$$) {
 					die("cannot parse time: " . $timeReceived);
 				};
 
- 				$values{$timeReceived_ut} = $content->{'payload_fields'}->{'box'};
-
-        if (defined $config{"threshold." . $dev_id}) {
-          if (($content->{'payload_fields'}->{'box'} eq "empty")
-            && ($content->{'payload_fields'}->{'sensor'} >= $config{"threshold." . $dev_id})
-          ) {
-            # overwrite status by later adjusted threshold
-  	        $values{$timeReceived_ut} = "full";
-          } elsif (($content->{'payload_fields'}->{'box'} eq "full")
-            && ($content->{'payload_fields'}->{'sensor'} < $config{"threshold." . $dev_id})
-          ) {
-            # overwrite status by later adjusted threshold
-  	        $values{$timeReceived_ut} = "empty";
-          };
-        };
+        $values{$timeReceived_ut}->{'box'} = $content->{'payload_fields'}->{'box'};
+				$values{$timeReceived_ut}->{'sensor'} = $content->{'payload_fields'}->{'sensor'};
 			};
     };
     close LOGF;
@@ -463,8 +451,31 @@ sub statistics_fill_device($$$) {
 	my $i = Image::Xpm->new(-file => $file);
 
 	# loop
+  my $box_last = "empty"; # initial
 	for my $value (sort { $a <=> $b } keys %values) {
-    statistics_xpm_update(undef, $type, $value, $values{$value}, $i);
+    if (defined $config{"threshold." . $dev_id}) {
+      if (($values{$value}->{'box'} =~ /^(empty|emptied)$/o)
+        && ($values{$value}->{'sensor'} >= $config{"threshold." . $dev_id})
+      ) {
+        # overwrite status by later adjusted threshold
+        if ($box_last =~ /^(empty|emptied)$/o) {
+          $values{$value}->{'box'} = "filled";
+        } else {
+          $values{$value}->{'box'} = "full";
+        };
+      } elsif (($values{$value}->{'box'} =~ /^(full|filling)$/o)
+        && ($values{$value}->{'sensor'} < $config{"threshold." . $dev_id})
+      ) {
+        # overwrite status by later adjusted threshold
+        if ($box_last =~ /^(full|filling)$/o) {
+          $values{$value}->{'box'} = "emptied";
+        } else {
+          $values{$value}->{'box'} = "empty";
+        };
+      };
+    };
+    statistics_xpm_update(undef, $type, $value, $values{$value}->{'box'}, $i);
+    $box_last = $values{$value}->{'box'};
 	};
 
   # finally save
