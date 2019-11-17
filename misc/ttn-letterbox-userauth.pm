@@ -41,6 +41,7 @@
 #
 # TODO
 # - honor time token from cookie
+# - implement password change
 
 use strict;
 use warnings;
@@ -460,16 +461,19 @@ sub userauth_verify_token() {
 sub userauth_show() {
   my $response;
 
+  my $info = "";
+
   if (defined $user_data{'username'}) {
-    $response = "authenticated as user: " . $user_data{'username'};
+    $info = "authenticated as user: " . $user_data{'username'};
     if (defined $user_data{'dev_id_list'}) {
-      $response .= " (permitted for devices: " . $user_data{'dev_id_list'} . ")";
+      $info .= " (permitted for devices: " . $user_data{'dev_id_list'} . ")";
     };
   };
 
   $response .= "   <form method=\"post\">\n";
+  $response .= "    <label for=\"logout\">" . $info . " <input id=\"logout\" type=\"submit\" value=\"Logout\"></label>\n";
+#  $response .= "    <label for=\"pwchange\"><input id=\"pwchange\" type=\"submit\" value=\"Change Password\"></label>\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
-  $response .= "    <input type=\"submit\" value=\"Logout\">\n";
   $response .= "   </form>\n";
 
   return $response;
