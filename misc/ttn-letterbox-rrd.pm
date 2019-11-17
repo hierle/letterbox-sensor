@@ -12,6 +12,9 @@
 #   - rrd=[on|off]
 #   - rrdRange=[day|week|month|year]
 #
+# Supported environment
+#   - TTN_LETTERBOX_DEBUG_RRD
+#
 # 20191110/bie: initial version
 # 20191111/bie: add support for snr/rssi, change RRD font render mode
 # 20191112/bie: rework button implementation
