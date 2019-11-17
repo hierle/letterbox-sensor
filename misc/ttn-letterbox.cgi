@@ -81,7 +81,6 @@
 # Contents: <TIMESTAMP>
 # Purpose: time of last detected (received/autodetected) emptied status
 #
-#
 # Changelog:
 # 20191007/hie: initial
 # 20191029/bie: major extension, improve output, add support for additional sensors, add some error catching
@@ -97,6 +96,7 @@
 # 20191114/bie: add support for HTTP_TTN_LETTERBOX_QUERY_STRING (SSI/mod_include), change color of Reload button
 # 20191115/bie: cosmetic name change
 # 20191116/bie: rename HTTP_TTN_LETTERBOX_QUERY_STRING to HTTP_X_TTN_LETTERBOX_QUERY_STRING
+# 20191117/bie: implement hooks for authentication, cosmetics, reorg
 #
 # TODO:
 # - lock around file writes
@@ -117,7 +117,7 @@ use Crypt::SaltedHash;
 our %hooks;
 
 # optional modules
-my @module_list = ("ttn-letterbox-statistics.pm", "ttn-letterbox-rrd.pm");
+my @module_list = ("ttn-letterbox-statistics.pm", "ttn-letterbox-rrd.pm", "ttn-letterbox-userauth.pm");
 
 for my $module (@module_list) {
   if (-e $module && -r $module) {
@@ -129,7 +129,7 @@ for my $module (@module_list) {
 my $program = "ttn-letterbox.cgi";
 
 # prototyping
-sub response($$;$$);
+sub response($$;$$$$$);
 sub letter($);
 sub logging($);
 sub deltatime_string($);
@@ -147,6 +147,8 @@ our %config = (
 
 # global data
 our %querystring;
+our $datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
+our $conffile;
 
 # set time strings
 my $nowstr = strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(time);
@@ -159,19 +161,15 @@ my $reqm = $ENV{'REQUEST_METHOD'};
 ## basic error check
 ####################
 
-my $datadir;
-my $confdir;
-
 # default
 if (!defined $ENV{'DOCUMENT_ROOT'}) {
   response(500, "major problem found", "", "'DOCUMENT_ROOT' not defined in environment");
   exit;
 };
-$datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
-$confdir = $ENV{'DOCUMENT_ROOT'} . "/../conf"; # default
+my $confdir = $ENV{'DOCUMENT_ROOT'} . "/../conf"; # default
 
 # read optional config
-my $conffile = "$confdir/ttn-letterbox.conf";
+$conffile = $confdir . "/ttn-letterbox.conf";
 
 if (-e $conffile) {
   if (! -r $conffile) {
@@ -276,6 +274,13 @@ if (defined $reqm && $reqm eq "POST") { # POST data
   exit;
 
 } elsif (defined $reqm && $reqm eq "GET") { # GET request
+  # hook for authentication
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'auth_check'}) {
+      $hooks{$module}->{'auth_check'}->();
+    };
+  };
+
   req_get();
   exit;
 
@@ -296,6 +301,53 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 ##############
 
 ##############
+## query string parser
+## default: QUERY_STRING,REDIRECT_QUERY_STRING,HTTP_X_TTN_LETTERBOX_QUERY_STRING
+## optional: given querystring
+## optional2: given hash to store
+##############
+sub parse_querystring(;$$) {
+  ## simple query string parser
+  my $qs;
+ 
+  if (! defined $_[0]) {
+    $qs = $ENV{'QUERY_STRING'};
+    if (!defined $qs) {
+      # try from redirect
+      $qs = $ENV{'REDIRECT_QUERY_STRING'};
+    };
+
+    # append optional TTN_LETTERBOX_QUERY_STRING (e.g. provided by SSI/mod_include)
+    if (defined $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'}) {
+      if (defined $qs && length($qs) > 0) {
+        $qs .= "&" . $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
+      } else {
+        $qs = $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
+      };
+    };
+  } else {
+    $qs = $_[0];
+  };
+
+  if (defined $qs) {
+    foreach my $query_stringlet (split /[\?\&]/, $qs) {
+      if ($query_stringlet !~ /^([[:alnum:]_]+)=([[:alnum:].\-:=\/\$%+]+)$/o) {
+        # ignore improper stringlet
+        next;
+      };
+
+      if (defined $_[1]) {
+        $_[1]->{$1} = $2;
+      } else {
+        # store in global querystring hash
+        $querystring{$1} = $2;
+      };
+    };
+  };
+};
+
+
+##############
 ## handling POST request
 ##############
 sub req_post() {
@@ -309,6 +361,13 @@ sub req_post() {
   if (scalar(@lines) > 1) {
     response(500, "too many lines received via POST request");
     exit;
+  };
+
+  # hook for authentication
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'auth_verify'}) {
+      $hooks{$module}->{'auth_verify'}->($lines[0]);
+    };
   };
 
   # decode JSON
@@ -547,32 +606,7 @@ sub req_post() {
 ## handling GET request
 ##############
 sub req_get() {
-  ## simple query string parser
-  my $qs = $ENV{'QUERY_STRING'};
-  if (!defined $qs) {
-    # try from redirect
-    $qs = $ENV{'REDIRECT_QUERY_STRING'};
-  };
-
-  # append optional TTN_LETTERBOX_QUERY_STRING (e.g. provided by SSI/mod_include)
-  if (defined $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'}) {
-    if (defined $qs && length($qs) > 0) {
-      $qs .= "&" . $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
-    } else {
-      $qs = $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
-    };
-  };
-
-  if (defined $qs) {
-    foreach my $query_stringlet (split /[\?\&]/, $qs) {
-      if ($query_stringlet !~ /^([[:alnum:]_]+)=([[:alnum:].\-:%+]+)$/) {
-        # ignore improper stringlet
-        next;
-      };
-
-      $querystring{$1} = $2;
-    };
-  };
+  parse_querystring();
 
   my @devices;
   if (-e $devfile) {
@@ -771,17 +805,25 @@ sub deltatime_string($) {
 
 
 ## print HTTP response
-sub response($$;$$) {
-  my $status = shift;
-  my $message = shift || "";
-  my $header = shift || "";
-  my $error = shift || "";
+sub response($$;$$$$$) {
+  my $status = $_[0];
+  my $message = $_[1] || "";
+  my $header = $_[2] || "";
+  my $error = $_[3] || "";
+  my $cookie = $_[4];
+  my $refresh_delay = $_[5];
+  my $quiet = $_[6];
+
+  my %cgi_headers = (
+    -status => $status,
+    -expires => 'now'
+  );
+
+  $cgi_headers{'-cookie'} = $cookie if (defined $cookie);
+  $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $ENV{'REQUEST_URI'} if (defined $refresh_delay);
 
   # Header
-  print CGI::header(
-	-status=>$status,
-	-expires=>'now'
-  );
+  print CGI::header(%cgi_headers);
 
   # sleep to avoid DoS
   my $sleep = 0.1 * (1 + rand(1));
@@ -790,7 +832,7 @@ sub response($$;$$) {
     $sleep += 3;
     # log to error log
     my $log = $message;
-    $log .= ": " . $error if length($error) > 0;
+    $log = $error if length($error) > 0;
     logging($log);
   };
   sleep($sleep);
@@ -801,12 +843,14 @@ sub response($$;$$) {
   } else {
     # directly called
     print "<!DOCTYPE html>\n<html>\n<head>\n";
+    print " <title>TTN Letterbox Sensor - " . $ENV{'SERVER_NAME'} . "</title>\n";
     print "$header";
     print "</head>\n<body>\n";
 
     print "$message";
 
-    if (defined $reqm && $reqm eq "GET" && $status eq "200") {
+    if (defined $refresh_delay && ! defined $quiet) {
+      print " - redirect in " . $refresh_delay . " seconds";
     };
 
     print "\n</body>\n</html>\n";
@@ -817,7 +861,8 @@ sub response($$;$$) {
 ## letterbox HTML generation
 sub letter($) {
   my $dev_hash_p = shift;
-  my $num_boxes = scalar(keys %$dev_hash_p);
+
+  my %dev_hash;
 
   my $response = "";
   my $bg;
@@ -901,8 +946,46 @@ sub letter($) {
     $response .= "<br />\n";
   } elsif (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
     $response .= "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
+    $response .= "<br />\n";
   } else {
     $response .= "<br />\n";
+  };
+
+  # hook for authentication (display)
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'auth_show'}) {
+      my $text = $hooks{$module}->{'auth_show'}->();
+      if (defined $text) {
+        $response .= "<font color=grey size=-2>" . $text . "</font>\n";
+        $response .= "<br />\n";
+      };
+    };
+  };
+
+  # hook for authentication (acl)
+  for my $dev_id (sort keys %$dev_hash_p) {
+    my $acl_found = 0;
+    for my $module (sort keys %hooks) {
+      if (defined $hooks{$module}->{'auth_check_acl'}) {
+        $acl_found = 1;
+        if ($hooks{$module}->{'auth_check_acl'}->($dev_id) > 0) {
+          # warn("add after acl check dev_id=" . $dev_id);
+          $dev_hash{$dev_id} = $$dev_hash_p{$dev_id};
+        };
+      };
+    };
+
+    if ($acl_found == 0) {
+      # no ACL hook active
+      $dev_hash{$dev_id} = $$dev_hash_p{$dev_id};
+    };
+  };
+
+  if (scalar(keys %dev_hash) == 0) {
+    # no devices in list or permitted
+    $response .= "<font color=\"red\">no devices found or permitted</font>";
+    response(200, $response, undef);
+    exit 0;
   };
 
   $response .= "<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">\n";
@@ -912,7 +995,7 @@ sub letter($) {
   $response .= "<th></th>";
 
   # row 1
-  for my $dev_id (sort keys %$dev_hash_p) {
+  for my $dev_id (sort keys %dev_hash) {
     $response .= "<th align=\"center\"><font size=+1><b>". $dev_id . "</b></font></th>";
   };
   $response .= "</tr>\n";
@@ -920,12 +1003,12 @@ sub letter($) {
   # row 2
   $response .= " <tr>";
   $response .= "<td></td>";
-  for my $dev_id (sort keys %$dev_hash_p) {
-    if (defined $bg_colors{$$dev_hash_p{$dev_id}->{'box'}}) {
+  for my $dev_id (sort keys %dev_hash) {
+    if (defined $bg_colors{$dev_hash{$dev_id}->{'box'}}) {
       # set bgcolor if defined
-      $bg = " bgcolor=" . $bg_colors{$$dev_hash_p{$dev_id}->{'box'}};
+      $bg = " bgcolor=" . $bg_colors{$dev_hash{$dev_id}->{'box'}};
     };
-    $response .= "<td" . $bg . " align=\"center\"><font size=+3><b>" . uc($$dev_hash_p{$dev_id}->{'box'}) . "</b></font></td>";
+    $response .= "<td" . $bg . " align=\"center\"><font size=+3><b>" . uc($dev_hash{$dev_id}->{'box'}) . "</b></font></td>";
   };
   $response .= "</tr>\n";
 
@@ -936,7 +1019,7 @@ sub letter($) {
     $response .= " <tr>";
     $response .= "<td><font size=-1>" . $info . "</font></td>";
 
-    for my $dev_id (sort keys %$dev_hash_p) {
+    for my $dev_id (sort keys %dev_hash) {
       # no bgcolor
       $bg = "";
       # no fontcolor
@@ -947,16 +1030,16 @@ sub letter($) {
         # no fontcolor
         $fc = "";
       } elsif ($info =~ /LastReceived/o) {
-        if (defined $bg_colors{$$dev_hash_p{$dev_id}->{'box'}}) {
+        if (defined $bg_colors{$dev_hash{$dev_id}->{'box'}}) {
           # set bgcolor if defined
-          $bg = " bgcolor=" . $bg_colors{$$dev_hash_p{$dev_id}->{'box'}};
+          $bg = " bgcolor=" . $bg_colors{$dev_hash{$dev_id}->{'box'}};
         };
-        if ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.crit"} * 60) {
+        if ($dev_hash{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.crit"} * 60) {
           # disable bgcolor
           $bg = "";
           # activate fontcolor
           $fc = " color=red";
-        } elsif ($$dev_hash_p{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.warn"} * 60) {
+        } elsif ($dev_hash{$dev_id}->{'values'}->{'deltaLastReceived'} >= $config{"delta.warn"} * 60) {
           # disable bgcolor
           $bg = "";
           # activate fontcolor
@@ -964,10 +1047,10 @@ sub letter($) {
         };
       };
 
-      $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $$dev_hash_p{$dev_id}->{'info'}->{$info} . "</font></td>";
+      $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $dev_hash{$dev_id}->{'info'}->{$info} . "</font></td>";
 
       # check for optional graphics
-      if (defined $$dev_hash_p{$dev_id}->{'graphics'}) {
+      if (defined $dev_hash{$dev_id}->{'graphics'}) {
         $has_graphics = 1;
       };
     };
@@ -977,8 +1060,8 @@ sub letter($) {
   if ($has_graphics == 1) {
     # get list of types
     my %types;
-    for my $dev_id (sort keys %$dev_hash_p) {
-      my $graphics_p = $$dev_hash_p{$dev_id}->{'graphics'};
+    for my $dev_id (sort keys %dev_hash) {
+      my $graphics_p = $dev_hash{$dev_id}->{'graphics'};
       for my $type (keys %$graphics_p) {
         $types{$type} = 1;
       };
@@ -988,10 +1071,10 @@ sub letter($) {
     for my $type (sort keys %types) {
       $response .= " <tr>";
       $response .= "<td><font size=-1>Graphics:<br />" . $type . "</font></td>";
-      for my $dev_id (sort keys %$dev_hash_p) {
+      for my $dev_id (sort keys %dev_hash) {
         $response .= "\n  <td align=\"center\">\n";
-        if (defined $$dev_hash_p{$dev_id}->{'graphics'}) {
-          my $graphics_p = $$dev_hash_p{$dev_id}->{'graphics'};
+        if (defined $dev_hash{$dev_id}->{'graphics'}) {
+          my $graphics_p = $dev_hash{$dev_id}->{'graphics'};
           my $line = $$graphics_p{$type};
           $response .= "   " . $line . "\n";
         };
