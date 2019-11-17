@@ -496,9 +496,9 @@ sub statistics_fill_device($$$) {
       };
 
       if (defined $config{"threshold." . $dev_id}) {
-        logging("statistic: sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: value=" . $value . "(" . strftime("%Y-%m-%d %H:%M", gmtime($value)) . ") sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
       } else {
-        logging("statistic: sensor=" . $values{$value}->{'sensor'} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: value=" . $value . " sensor=" . $values{$value}->{'sensor'} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
       };
     };
 
