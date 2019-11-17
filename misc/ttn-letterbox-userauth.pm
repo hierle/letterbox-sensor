@@ -159,14 +159,22 @@ sub userauth_generate() {
 
   if (! defined $user_data{'username'} || $user_data{'username'} eq "") {
     my $response;
-    $response .= "   Authentication required\n";
+    $response .= "   <b>Authentication required</b>\n";
     $response .= "   <form method=\"post\">\n";
-    $response .= "    <label for=\"username\">Username: <input id=\"username\" type=\"text\" name=\"username\"></label>\n";
-    $response .= "    <label for=\"password\">Password: <input id=\"password\" type=\"password\" name=\"password\"></label>\n";
+    $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+    $response .= "     <tr>\n";
+    $response .= "      <td>Username:</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "     </tr>\n";
+    $response .= "     <tr>\n";
+    $response .= "      <td>Password:</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "     </tr>\n";
+    $response .= "     <tr>\n";
+    $response .= "      <td></td><td><input type=\"submit\" value=\"Login\" style=\"width:100px;height:50px;\"></td>\n";
+    $response .= "     </tr>\n";
+    $response .= "    </table>\n";
     $response .= "    <input type=\"text\" name=\"session_token_form\" value=\"" . $session_token_form . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"rand\" value=\"" . $rand . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"action\" value=\"login\" hidden>\n";
-    $response .= "    <input type=\"submit\" value=\"Login\" style=\"width:100px;height:50px;\">\n";
     $response .= "   </form>\n";
     my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "session_token_cookie=" . $session_token_cookie . "&time=" . $time, -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
     response(200, $response, "", "", $cookie, int($session_token_lifetime / 2), 1);
@@ -471,7 +479,7 @@ sub userauth_show() {
   };
 
   $response .= "   <form method=\"post\">\n";
-  $response .= "    <label for=\"logout\">" . $info . " <input id=\"logout\" type=\"submit\" value=\"Logout\"></label>\n";
+  $response .= "    <label for=\"logout\">" . $info . " <input id=\"logout\" type=\"submit\" value=\"Logout\" style=\"width:70px;height:30px;\"></label>\n";
 #  $response .= "    <label for=\"pwchange\"><input id=\"pwchange\" type=\"submit\" value=\"Change Password\"></label>\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
   $response .= "   </form>\n";

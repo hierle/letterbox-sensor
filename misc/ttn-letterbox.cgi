@@ -844,8 +844,10 @@ sub response($$;$$$$$) {
     # directly called
     print "<!DOCTYPE html>\n<html>\n<head>\n";
     print " <title>TTN Letterbox Sensor - " . $ENV{'SERVER_NAME'} . "</title>\n";
+    print "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     print "$header";
     print "</head>\n<body>\n";
+    print "<h1>TTN Letterbox Sensor - " . $ENV{'SERVER_NAME'} . "</h1>\n";
 
     print "$message";
 
@@ -1087,9 +1089,9 @@ sub letter($) {
   $response .= "</table>\n";
 
   # autoreload header
-  my $header = ' <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
+  my $header;
   if (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
-    $header .= ' <meta HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
+    $header = ' <meta HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
   };
 
   response(200, $response, $header);
