@@ -187,6 +187,11 @@ sub userauth_verify($) {
     return;
   };
 
+  if ($_[0] =~ /^{/o) {
+    # looks like start of JSON, not handling
+    return;
+  };
+
   # parse form data (if existing)
   parse_querystring($_[0], \%post_data);
 
