@@ -49,7 +49,7 @@
 #   - GET requests are currently NOT protected
 #
 # Supported Query String parameters (main, for modules see there)
-#   QUERY_STRING from CGI env + HTTP_TTN_LETTERBOX_QUERY_STRING from mod_include
+#   QUERY_STRING from CGI env + HTTP_X_TTN_LETTERBOX_QUERY_STRING from mod_include
 #   - dev_id=<dev_id>
 #   - details=[on|off]
 #   - autoreload=[on|off]
@@ -96,6 +96,7 @@
 # 20191113/bie: implement auto-reload button
 # 20191114/bie: add support for HTTP_TTN_LETTERBOX_QUERY_STRING (SSI/mod_include), change color of Reload button
 # 20191115/bie: cosmetic name change
+# 20191116/bie: rename HTTP_TTN_LETTERBOX_QUERY_STRING to HTTP_X_TTN_LETTERBOX_QUERY_STRING
 #
 # TODO:
 # - lock around file writes
@@ -447,21 +448,22 @@ sub req_post() {
     my $sensor = $content->{'payload_fields'}->{'sensor'};
     my $box = $content->{'payload_fields'}->{'box'};
 
-    if (($sensor < $threshold) && ($box eq "full")) {
+    # overwrite box status with given threshold
+    if (($sensor < $threshold) && ($box =~ /^(full|filled)$/o)) {
       $content->{'payload_fields'}->{'box'} = "empty";
-    } elsif (($sensor >= $threshold) && ($box eq "empty")) {
+    } elsif (($sensor >= $threshold) && ($box =~ /^(empty|emptied)$/o)) {
       $content->{'payload_fields'}->{'box'} = "full";
     };
   };
 
-  # init
-  if ($content->{'payload_fields'}->{'box'} eq "full") {
+  # init in case of lastfilled/lastemptied is missing
+  if ($content->{'payload_fields'}->{'box'} =~ /^(full|filled)$/o) {
     if (! -e $filledfile) {
       $filledtime_write = 1; 
     };
   };
    
-  if ($content->{'payload_fields'}->{'box'} eq "empty") {
+  if ($content->{'payload_fields'}->{'box'} =~ /^(empty|emptied)$/o) {
     if (! -e $emptiedfile) {
       $emptiedtime_write = 1; 
     };
@@ -553,11 +555,11 @@ sub req_get() {
   };
 
   # append optional TTN_LETTERBOX_QUERY_STRING (e.g. provided by SSI/mod_include)
-  if (defined $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'}) {
+  if (defined $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'}) {
     if (defined $qs && length($qs) > 0) {
-      $qs .= "&" . $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'};
+      $qs .= "&" . $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
     } else {
-      $qs = $ENV{'HTTP_TTN_LETTERBOX_QUERY_STRING'};
+      $qs = $ENV{'HTTP_X_TTN_LETTERBOX_QUERY_STRING'};
     };
   };
 
