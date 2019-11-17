@@ -16,12 +16,14 @@
 #   - name: $datadir . "/ttn.users.list"
 #   - format:
 #     - htpasswd compatible
-#       <username>:<hashed password>[:dev_id_list]
+#       <username>:<hashed password>:<dev_id_list>|*
 #   - new file with new user using bcrypt
 #      htpasswd -c -B data/ttn/ttn.users.list <username>
 #   - additional user using bcrypt
 #       htpasswd -B data/ttn/ttn.users.list <username2>
-#   - manually add optional comma separated dev_id_list for ACL
+#   - manually add ACL
+#     - either comma separated dev_id_list
+#     - or '*' for matching all dev_id
 #
 #
 # generate:
@@ -166,7 +168,7 @@ sub userauth_generate() {
     $response .= "    <input type=\"submit\" value=\"Login\" style=\"width:100px;height:50px;\">\n";
     $response .= "   </form>\n";
     my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "session_token_cookie=" . $session_token_cookie . "&time=" . $time, -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
-    response(200, $response, "", "", $cookie);
+    response(200, $response, "", "", $cookie, int($session_token_lifetime / 2), 1);
     exit 0;
   };
 };
@@ -207,10 +209,10 @@ sub userauth_verify($) {
   if ($post_data{'action'} eq "logout") {
     if (defined $cookie_data{'enc'}) {
       # clear auth token
-      response(200, "<font color=\"orange\">Logout successful (will be redirected back)</font>", "", "", $cookie, 3);
+      response(200, "<font color=\"orange\">Logout successful (will be redirected back)</font>", "", "", $cookie, 1);
     } else {
       # auth token already cleared
-      response(200, "<font color=\"orange\">Logout already done (will be redirected back)</font>", "", "", $cookie, 3);
+      response(200, "<font color=\"orange\">Logout already done (will be redirected back)</font>", "", "", $cookie, 1);
     };
     exit 0;
   };
@@ -326,18 +328,19 @@ sub userauth_verify($) {
 
   logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'})) if defined $config{'userauth'}->{'debug'};;
 
-  if ($password_hash =~ /^\$2(.)\$([0-9]+)\$([A-Za-z0-9+\\.]{22})(.*)$/o) {
+  if ($password_hash =~ /^\$2(.)\$([0-9]+)\$([A-Za-z0-9+\/\.]{22})(.*)$/o) {
     # bcrypt
     my $hash = en_base64(bcrypt_hash({ key_nul => 1, cost => $2, salt => de_base64($3)}, $post_data{'password'}));
     if ($hash ne $4) {
       response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
+      logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'} . " hash=" . $hash)) if defined $config{'userauth'}->{'debug'};;
       exit 0;
     };
   } else {
     # try MD5/SHA1 via module
     my $password_result = $htpasswd->htCheckPassword($post_data{'username'}, $post_data{'password'});
     if (! defined $password_result || $password_result eq "0") {
-      response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")");
+      response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
       exit 0;
     }; 
   };
@@ -480,11 +483,14 @@ sub userauth_check_acl($) {
   die if (! defined $_[0]); # input missing
   die if ($_[0] eq ""); # input missing
 
-  $result = 2 if (! defined $user_data{'dev_id_acl'}); # no ACL given 
-  $result = 2 if (scalar(keys %{$user_data{'dev_id_acl'}}) == 0); # no ACL given 
+  $result = 0 if (! defined $user_data{'dev_id_acl'}); # no ACL given
+  $result = 0 if (scalar(keys %{$user_data{'dev_id_acl'}}) == 0); # no ACL given
 
   # Check ACL
-  if ((defined $user_data{'dev_id_acl'}->{$_[0]}) && ($user_data{'dev_id_acl'}->{$_[0]} eq "1")) {
+  if ((defined $user_data{'dev_id_acl'}->{'*'}) && ($user_data{'dev_id_acl'}->{'*'} eq "1")) {
+    # wildcard
+    $result = 1;
+  } elsif ((defined $user_data{'dev_id_acl'}->{$_[0]}) && ($user_data{'dev_id_acl'}->{$_[0]} eq "1")) {
     $result = 1;
   };
 
