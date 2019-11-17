@@ -38,13 +38,13 @@
 # 20191117/bie: major rework
 #
 # TODO
-# - honor encrypted time token
+# - honor time token from cookie
 
 use strict;
 use warnings;
 use Data::UUID;
 use URI::Encode qw(uri_encode uri_decode);
-use Digest::SHA qw (sha512_base64);
+use Digest::SHA qw (sha512_base64 sha512);
 use Apache::Htpasswd;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt bcrypt_hash en_base64 de_base64);
 use Crypt::CBC;
@@ -69,7 +69,7 @@ my $userfile;
 ## prototyping
 sub userauth_init();
 sub userauth_check();
-sub userauth_verify_token($);
+sub userauth_verify_token();
 sub userauth_generate();
 sub userauth_verify($);
 sub userauth_show();
@@ -109,11 +109,11 @@ sub userauth_check() {
   if (defined $ENV{'HTTP_COOKIE'}) {
     logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth'}->{'debug'};
     my $line = $ENV{'HTTP_COOKIE'};
-    if ($line =~ /^TTN-AUTH-TOKEN=(.*)/o) {
+    if ($line =~ /^TTN-AUTH-TOKEN=(.+)/o) {
       parse_querystring(uri_decode($1), \%cookie_data);
-      # for my $k (keys %cookie_data) { warn($k . "=" . $cookie_data{$k}); }; # debug
       if (defined $cookie_data{'enc'}) {
-        userauth_verify_token($cookie_data{'enc'});
+        # encrypted token
+        userauth_verify_token();
       };
     };
   };
@@ -158,8 +158,8 @@ sub userauth_generate() {
     my $response;
     $response .= "   Authentication required\n";
     $response .= "   <form method=\"post\">\n";
-    $response .= "    <input type=\"text\" name=\"username\" value=\"username\">\n";
-    $response .= "    <input type=\"password\" name=\"password\" value=\"password\">\n";
+    $response .= "    <label for=\"username\">Username: <input id=\"username\" type=\"text\" name=\"username\"></label>\n";
+    $response .= "    <label for=\"password\">Password: <input id=\"password\" type=\"password\" name=\"password\"></label>\n";
     $response .= "    <input type=\"text\" name=\"session_token_form\" value=\"" . $session_token_form . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"rand\" value=\"" . $rand . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"action\" value=\"login\" hidden>\n";
@@ -178,7 +178,7 @@ sub userauth_generate() {
 sub userauth_verify($) {
   logging("userauth_verify") if defined $config{'userauth'}->{'debug'};
 
-  my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default
+  my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default clear cookie
 
   if (! defined $ENV{'CONTENT_TYPE'} || $ENV{'CONTENT_TYPE'} ne "application/x-www-form-urlencoded") {
     # not handling
@@ -195,10 +195,23 @@ sub userauth_verify($) {
   if ($post_data{'action'} !~ /^(login|logout)$/o) {
     response(500, "unsupported POST data", "", "unsupported content from form: action");
   };
+
+  if (defined $ENV{'HTTP_COOKIE'}) {
+    logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth'}->{'debug'};
+    my $line = $ENV{'HTTP_COOKIE'};
+    if ($line =~ /^TTN-AUTH-TOKEN=(.+)/o) {
+      parse_querystring(uri_decode($1), \%cookie_data);
+    };
+  };
  
   if ($post_data{'action'} eq "logout") {
-    # clear auth token
-    response(200, "<font color=\"orange\">Logout successful (will be redirected back)</font>", "", "", $cookie, 5);
+    if (defined $cookie_data{'enc'}) {
+      # clear auth token
+      response(200, "<font color=\"orange\">Logout successful (will be redirected back)</font>", "", "", $cookie, 3);
+    } else {
+      # auth token already cleared
+      response(200, "<font color=\"orange\">Logout already done (will be redirected back)</font>", "", "", $cookie, 3);
+    };
     exit 0;
   };
 
@@ -311,7 +324,7 @@ sub userauth_verify($) {
     exit 0;
   };
 
-  logging("user=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'})) if defined $config{'userauth'}->{'debug'};;
+  logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'})) if defined $config{'userauth'}->{'debug'};;
 
   if ($password_hash =~ /^\$2(.)\$([0-9]+)\$([A-Za-z0-9+\\.]{22})(.*)$/o) {
     # bcrypt
@@ -330,19 +343,19 @@ sub userauth_verify($) {
   };
 
   # create authentication token
-  my $cipher = Crypt::CBC->new(-key => $config{'uuid'}, -cipher => 'Rijndael');
-  my $plaintext = "time=" . time . "&username=" . $post_data{'username'} . "&password_hash=" . $password_hash;
+  my $cipher = Crypt::CBC->new(-key => sha512($config{'uuid'}), -cipher => 'Rijndael');
+  my $plaintext = "&time=" . time . "&username=" . $post_data{'username'} . "&password_hash=" . $password_hash;
   my $ciphertext = $cipher->encrypt($plaintext);
   my $auth_token = encode_base64($ciphertext, "");
 
-  logging("plaintext=" . $plaintext . " ciphertext=" . $auth_token) if defined $config{'userauth'}->{'debug'};
+  logging("plaintext:" . $plaintext) if defined $config{'userauth'}->{'debug'};
+  logging("ciphertext=" . $auth_token) if defined $config{'userauth'}->{'debug'};
 
   # create cookie
-  $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "enc=" . $auth_token, -expires => '+1y', -secure => 1, -httponly => 1);
+  $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "ver=1&enc=" . $auth_token, -expires => '+1y', -secure => 1, -httponly => 1);
 
   $user_data{'userauth'} = $post_data{'username'};
   logging("user successfully authenticated: " . $post_data{'username'});
-  # $ENV{'REMOTE_USER'} = $post_data{'username'}; # not working
 
   response(200, "<font color=\"green\">Login successful (will be redirected back)</font>", "", "", $cookie, 1);
   exit 0;
@@ -352,15 +365,34 @@ sub userauth_verify($) {
 ##############
 ## verify authentication token
 ##############
-sub userauth_verify_token($) {
+sub userauth_verify_token() {
   logging("userauth_verify_token") if defined $config{'userauth'}->{'debug'};
 
-  my $auth_token = $_[0];
+  my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default clear cookie
+
+  my $ver = $cookie_data{'ver'};
+  if (! defined $cookie_data{'ver'}) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie is missing: ver", $cookie, 10);
+    exit 0;
+  };
+  if ($cookie_data{'ver'} ne "1") {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data has unsupported value: ver", $cookie, 10);
+    exit 0;
+  };
+
+  if (! defined $cookie_data{'enc'}) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie is missing: enc", $cookie, 10);
+    exit 0;
+  };
+  if ($cookie_data{'enc'} !~ /^[0-9A-Za-z\+\/=]+$/o) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data has unsupported value: enc", $cookie, 10);
+    exit 0;
+  };
 
   # decrypt authentication token
-  logging("ciphertext=" . $auth_token) if defined $config{'userauth'}->{'debug'};
-  my $ciphertext = decode_base64(uri_decode($auth_token));
-  my $cipher = Crypt::CBC->new(-key => $config{'uuid'}, -cipher => 'Rijndael');
+  logging("ciphertext=" . $cookie_data{'enc'}) if defined $config{'userauth'}->{'debug'};
+  my $ciphertext = decode_base64(uri_decode($cookie_data{'enc'}));
+  my $cipher = Crypt::CBC->new(-key => sha512($config{'uuid'}), -cipher => 'Rijndael');
   my $plaintext = $cipher->decrypt($ciphertext);
   logging("plaintext:" . $plaintext) if defined $config{'userauth'}->{'debug'};
 
@@ -369,24 +401,39 @@ sub userauth_verify_token($) {
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
   if (! defined $htpasswd) {
-    response(401, "Authentication problem", "", "problem with htpasswd  user file: " . $userfile);
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
+    exit 0;
+  };
+
+  if (! defined $user_data{'username'}) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: username");
+    exit 0;
+  };
+
+  if (! defined $user_data{'password_hash'}) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: password_hash");
+    exit 0;
+  };
+
+  if (! defined $user_data{'time'}) {
+    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: time");
     exit 0;
   };
 
   my $password_hash = $htpasswd->fetchPass($user_data{'username'});
   if (! defined $password_hash || $password_hash eq "0") {
-    response(401, "Authentication problem", "", "user not found in file: " . $userfile . " (" . $user_data{'username'} . ")");
+    response(401, "<font color=\"red\">Authentication problem (username/password not accepted from cookie)</font>", "", "user not found in file: " . $userfile . " (" . $user_data{'username'} . ")", $cookie, 10);
     exit 0;
   };
 
   logging("from-htpassd-password_hash=" . $password_hash . " from cookie-password_hash=" . $user_data{'password_hash'}) if defined $config{'userauth'}->{'debug'};
 
   if ($password_hash ne $user_data{'password_hash'}) {
-    response(401, "Authentication problem", "", "authentication token invalid");
+    response(401, "<font color=\"red\">Authentication problem (username/password not accepted from cookie)</font>", "", "authentication token invalid", $cookie, 10);
     exit 0;
   };
 
-  # fetch optional info
+  # cookie authentication successful fetch optional info
   my $info = $htpasswd->fetchInfo($user_data{'username'});
   if (defined $info && $info ne "") {
     $user_data{'dev_id_list'} = $info;
