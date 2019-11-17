@@ -22,6 +22,7 @@
 # 20191112/bie: rework button implementation
 # 20191115/bie: remove hour/days from receivedstatus graphics
 # 20191116/bie: improve filled/empty detection on initialization
+# 20191117/bie: bugfix
 
 use strict;
 use warnings;
@@ -68,7 +69,7 @@ my %statistics_sizes = (
       'xgrid' => 4,
       'ygrid' => 5,
       'xdiv' => 4,
-      'ydiv' => 1,
+      'ydiv' => 96,
       'xscale' => 3,
       'yscale' => 3,
       ,'ltext' => "Days (rollover)",
@@ -227,7 +228,7 @@ sub statistics_xpm_create($$) {
 
   # draw x top number
 	for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-    statistics_paintNumber($i, $x + $lborder - 1, 2, $x, $color_number);
+    statistics_paintNumber($i, $x + $lborder - 1, 2, int($x / $xdiv), $color_number);
 	  # draw x ticks number
 		$i->xy($x + $lborder, $tborder - 2 , $color_ticks);
 		$i->xy($x + $lborder, $height - $bborder + 1 , $color_ticks);
@@ -247,7 +248,7 @@ sub statistics_xpm_create($$) {
 
   # draw y left number
 	for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-    statistics_paintNumber($i, 2, $y + $tborder - 1, $y * $xmax, $color_number);
+    statistics_paintNumber($i, 2, $y + $tborder - 1, int($y * $xmax / $ydiv), $color_number);
 	  # draw y ticks number
 		$i->xy(0 + $lborder - 2, $y + $tborder, $color_ticks);
 		$i->xy($width - $rborder + 1, $y + $tborder, $color_ticks);
@@ -442,40 +443,70 @@ sub statistics_fill_device($$$) {
 
         $values{$timeReceived_ut}->{'box'} = $content->{'payload_fields'}->{'box'};
 				$values{$timeReceived_ut}->{'sensor'} = $content->{'payload_fields'}->{'sensor'};
+        logging("statistic: boxstatus " . "timeReceived_ut=" . $timeReceived_ut . " box=" . $content->{'payload_fields'}->{'box'} . " sensor=" . $content->{'payload_fields'}->{'sensor'}) if defined $config{'statistics'}->{'debug'};
 			};
     };
     close LOGF;
   };
 
-  # store data from logfiles in xpm
+  # create image
 	my $i = Image::Xpm->new(-file => $file);
 
-	# loop
+  # store data from logfiles in xpm
   my $box_last = "empty"; # initial
+  my $box;
+
 	for my $value (sort { $a <=> $b } keys %values) {
-    if (defined $config{"threshold." . $dev_id}) {
-      if (($values{$value}->{'box'} =~ /^(empty|emptied)$/o)
-        && ($values{$value}->{'sensor'} >= $config{"threshold." . $dev_id})
-      ) {
-        # overwrite status by later adjusted threshold
-        if ($box_last =~ /^(empty|emptied)$/o) {
-          $values{$value}->{'box'} = "filled";
-        } else {
-          $values{$value}->{'box'} = "full";
+    if ($type eq "boxstatus") {
+      $box = $values{$value}->{'box'}; # default
+
+      if (defined $config{"threshold." . $dev_id}) {
+        # set status on configure threshold
+        if (($values{$value}->{'box'} =~ /^(empty|emptied)$/o)
+          && ($values{$value}->{'sensor'} >= $config{"threshold." . $dev_id})
+        ) {
+          # overwrite status by later adjusted threshold
+          if ($box_last =~ /^(empty|emptied)$/o) {
+            $box = "filled";
+          } else {
+            $box = "full";
+          };
+        } elsif (($values{$value}->{'box'} =~ /^(full|filled)$/o)
+          && ($values{$value}->{'sensor'} < $config{"threshold." . $dev_id})
+        ) {
+          # overwrite status by later adjusted threshold
+          if ($box_last =~ /^(full|filled)$/o) {
+            $box = "emptied";
+          } else {
+            $box = "empty";
+          };
         };
-      } elsif (($values{$value}->{'box'} =~ /^(full|filling)$/o)
-        && ($values{$value}->{'sensor'} < $config{"threshold." . $dev_id})
-      ) {
-        # overwrite status by later adjusted threshold
-        if ($box_last =~ /^(full|filling)$/o) {
-          $values{$value}->{'box'} = "emptied";
-        } else {
-          $values{$value}->{'box'} = "empty";
+        logging("statistic: threshold adjustment: sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+      };
+
+      # overwrite status
+      if ($box =~ /^(empty)$/o) {
+        if ($box_last =~ /^(full|filled)$/o) {
+          $box = "emptied";
+        };
+      } elsif ($box =~ /^(full)$/o) {
+        if ($box_last =~ /^(empty)$/o) {
+          $box = "filled";
         };
       };
+
+      if (defined $config{"threshold." . $dev_id}) {
+        logging("statistic: sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+      } else {
+        logging("statistic: sensor=" . $values{$value}->{'sensor'} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+      };
     };
-    statistics_xpm_update(undef, $type, $value, $values{$value}->{'box'}, $i);
-    $box_last = $values{$value}->{'box'};
+
+    statistics_xpm_update(undef, $type, $value, $box, $i);
+
+    if ($type eq "boxstatus") {
+      $box_last = $box;
+    };
 	};
 
   # finally save
