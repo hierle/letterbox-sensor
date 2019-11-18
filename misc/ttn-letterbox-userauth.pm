@@ -38,9 +38,9 @@
 #
 # 20191116/bie: initial version
 # 20191117/bie: major rework
+# 20191118/bie: honor time token from cookie, store expiry in auth cookie
 #
 # TODO
-# - honor time token from cookie
 # - implement password change
 
 use strict;
@@ -62,6 +62,7 @@ our $datadir;
 # local data
 my $session_token_split = 40;
 my $session_token_lifetime = 300; # seconds
+my $auth_token_lifetime = 86400 * 365; # seconds (1y)
 my %cookie_data;
 my %post_data;
 my %user_data;
@@ -157,6 +158,11 @@ sub userauth_generate() {
   my $session_token_form = substr($session_token, 0, $session_token_split);
   my $session_token_cookie = substr($session_token, $session_token_split);
 
+  if (! defined $ENV{'HTTPS'} || $ENV{'HTTPS'} ne "on") {
+    response(401, "<font color=\"red\">Authentication required but not called via HTTPS", "", "HTTPS not enabled");
+    exit 0;
+  };
+
   if (! defined $user_data{'username'} || $user_data{'username'} eq "") {
     my $response;
     $response .= "   <b>Authentication required</b>\n";
@@ -177,7 +183,7 @@ sub userauth_generate() {
     $response .= "    <input type=\"text\" name=\"action\" value=\"login\" hidden>\n";
     $response .= "   </form>\n";
     my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "session_token_cookie=" . $session_token_cookie . "&time=" . $time, -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
-    response(200, $response, "", "", $cookie, int($session_token_lifetime / 2), 1);
+    response(200, $response, "", "", $cookie);
     exit 0;
   };
 };
@@ -361,7 +367,7 @@ sub userauth_verify($) {
 
   # create authentication token
   my $cipher = Crypt::CBC->new(-key => sha512($config{'uuid'}), -cipher => 'Rijndael');
-  my $plaintext = "&time=" . time . "&username=" . $post_data{'username'} . "&password_hash=" . $password_hash;
+  my $plaintext = "&time=" . time . "&expiry=" . (time + $auth_token_lifetime) . "&username=" . $post_data{'username'} . "&password_hash=" . $password_hash;
   my $ciphertext = $cipher->encrypt($plaintext);
   my $auth_token = encode_base64($ciphertext, "");
 
@@ -369,7 +375,7 @@ sub userauth_verify($) {
   logging("ciphertext=" . $auth_token) if defined $config{'userauth'}->{'debug'};
 
   # create cookie
-  $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "ver=1&enc=" . $auth_token, -expires => '+1y', -secure => 1, -httponly => 1);
+  $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "ver=1&enc=" . $auth_token, -expires => '+' . $auth_token_lifetime . 's', -secure => 1, -httponly => 1);
 
   $user_data{'userauth'} = $post_data{'username'};
   logging("user successfully authenticated: " . $post_data{'username'});
@@ -422,19 +428,11 @@ sub userauth_verify_token() {
     exit 0;
   };
 
-  if (! defined $user_data{'username'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: username");
-    exit 0;
-  };
-
-  if (! defined $user_data{'password_hash'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: password_hash");
-    exit 0;
-  };
-
-  if (! defined $user_data{'time'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: time");
-    exit 0;
+  for my $token ("username", "password_hash", "time", "expiry") {
+    if (! defined $user_data{$token}) {
+      response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: " . $token);
+      exit 0;
+    };
   };
 
   my $password_hash = $htpasswd->fetchPass($user_data{'username'});
@@ -453,7 +451,6 @@ sub userauth_verify_token() {
   # cookie authentication successful fetch optional info
   my $info = $htpasswd->fetchInfo($user_data{'username'});
   if (defined $info && $info ne "") {
-    $user_data{'dev_id_list'} = $info;
     for my $dev_id (split /,/, $info) {
       $user_data{'dev_id_acl'}->{$dev_id} = 1;
     };
@@ -467,22 +464,41 @@ sub userauth_verify_token() {
 ## show authentication
 ##############
 sub userauth_show() {
-  my $response;
+  my $response = "\n";
 
-  my $info = "";
+  return if (!defined $user_data{'username'} || $user_data{'username'} eq ""); # no username -> no info
 
-  if (defined $user_data{'username'}) {
-    $info = "authenticated as user: " . $user_data{'username'};
-    if (defined $user_data{'dev_id_list'}) {
-      $info .= " (permitted for devices: " . $user_data{'dev_id_list'} . ")";
-    };
-  };
-
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
+  $response .= " <tr>\n";
+  $response .= "  <td>authenticated as user: " . $user_data{'username'} . "</td>\n";
+  $response .= "  <td rowspan=3>\n";
   $response .= "   <form method=\"post\">\n";
-  $response .= "    <label for=\"logout\">" . $info . " <input id=\"logout\" type=\"submit\" value=\"Logout\" style=\"width:70px;height:30px;\"></label>\n";
-#  $response .= "    <label for=\"pwchange\"><input id=\"pwchange\" type=\"submit\" value=\"Change Password\"></label>\n";
+  $response .= "     <input id=\"logout\" type=\"submit\" value=\"Logout\">\n";
+#  $response .= "    <input id=\"pwchange\" type=\"submit\" value=\"Change Password\">\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
   $response .= "   </form>\n";
+  $response .= "  <td>";
+  $response .= " </tr>\n";
+  $response .= " <tr>\n";
+  $response .= "  <td>permitted for devices: ";
+  if ((defined $user_data{'dev_id_acl'}->{'*'}) && ($user_data{'dev_id_acl'}->{'*'} eq "1")) {
+    # wildcard
+    $response .= "ALL";
+  } elsif (scalar(keys %{$user_data{'dev_id_acl'}}) > 0) {
+    $response .= join(",", keys %{$user_data{'dev_id_acl'}});
+  } else {
+    $response .= "NONE";
+  };
+  $response .= "</td>\n";
+  $response .= " </tr>\n";
+  $response .= " <tr>\n";
+  $response .= "  <td>";
+  if (defined $user_data{'expiry'}) {
+    $response .= "authentication cookie expires in days: " . int(($user_data{'expiry'} - time) / 86400);
+  };
+  $response .= "</td>\n";
+  $response .= " </tr>\n";
+  $response .= "</table>\n";
 
   return $response;
 };
