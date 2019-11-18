@@ -196,6 +196,7 @@ sub userauth_verify($) {
   logging("userauth_verify") if defined $config{'userauth'}->{'debug'};
 
   my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default clear cookie
+  my $cookie_found = 0;
 
   if (! defined $ENV{'CONTENT_TYPE'} || $ENV{'CONTENT_TYPE'} ne "application/x-www-form-urlencoded") {
     # not handling
@@ -222,6 +223,7 @@ sub userauth_verify($) {
     logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth'}->{'debug'};
     my $line = $ENV{'HTTP_COOKIE'};
     if ($line =~ /^TTN-AUTH-TOKEN=(.+)/o) {
+      $cookie_found = 1;
       parse_querystring(uri_decode($1), \%cookie_data);
     };
   };
@@ -247,6 +249,11 @@ sub userauth_verify($) {
   };
 
   my $uuid = $ug->from_string($config{'uuid'});
+
+  if ($cookie_found == 0) {
+    response(401, "<font color=\"red\">Authentication problem (login session expired or cookies disabled, will be redirected soon)</font>", "", "session expired (no cookie)", $cookie, 10);
+    exit 0;
+  };
 
   if (! defined $cookie_data{'session_token_cookie'}) {
     response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
