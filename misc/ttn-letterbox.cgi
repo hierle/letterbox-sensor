@@ -843,11 +843,14 @@ sub response($$;$$$$$) {
   } else {
     # directly called
     print "<!DOCTYPE html>\n<html>\n<head>\n";
-    print " <title>TTN Letterbox Sensor - " . $ENV{'SERVER_NAME'} . "</title>\n";
+    print " <title>TTN Letterbox Sensor Status - " . $ENV{'SERVER_NAME'} . "</title>\n";
     print "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     print "$header";
     print "</head>\n<body>\n";
-    print "<h1>TTN Letterbox Sensor - " . $ENV{'SERVER_NAME'} . "</h1>\n";
+    print "<font size=\"+1\">TTN Letterbox Sensor Status<font>\n";
+    print "<br />\n";
+    print "<font size=\"-1\">hosted on " . $ENV{'SERVER_NAME'} . "</font>\n";
+    print "<br />\n";
 
     print "$message";
 
