@@ -847,7 +847,7 @@ sub response($$;$$$$$) {
     print "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     print "$header";
     print "</head>\n<body>\n";
-    print "<font size=\"+1\">TTN Letterbox Sensor Status<font>\n";
+    print "<font size=\"+1\">TTN Letterbox Sensor Status</font>\n";
     print "<br />\n";
     print "<font size=\"-1\">hosted on " . $ENV{'SERVER_NAME'} . "</font>\n";
     print "<br />\n";
@@ -1099,5 +1099,6 @@ sub letter($) {
   };
 
   response(200, $response, $header);
-}; 
+};
+
 # vim: set noai ts=2 sw=2 et:
