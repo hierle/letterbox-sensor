@@ -373,7 +373,7 @@ sub req_post() {
   # decode JSON
   my $content = eval{ decode_json($lines[0])};
   if ($@) {
-    response(500, "unsupported POST data", "", "POST request does not contain valid JSON contents");
+    response(500, "unsupported POST data", "", "POST request does not contain valid JSON content");
     exit;
   };
 
@@ -855,7 +855,8 @@ sub response($$;$$$$$) {
     print "$message";
 
     if (defined $refresh_delay && ! defined $quiet) {
-      print " - redirect in " . $refresh_delay . " seconds";
+      print "<br />\n";
+      print "<font size=\"-1\">redirect in " . $refresh_delay . " seconds</font>";
     };
 
     print "\n</body>\n</html>\n";
