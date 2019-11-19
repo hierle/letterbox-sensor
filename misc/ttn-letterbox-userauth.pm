@@ -63,6 +63,7 @@ our $datadir;
 my $session_token_split = 40;
 my $session_token_lifetime = 300; # seconds
 my $auth_token_lifetime = 86400 * 365; # seconds (1y)
+my $auth_token_limit_changepw = 300; # seconds (5 min)
 my %cookie_data;
 my %post_data;
 my %user_data;
@@ -213,10 +214,12 @@ sub userauth_verify($) {
 
   if (! defined $post_data{'action'}) {
     response(500, "unsupported POST data", "", "missing from form: action");
+    exit 0;
   };
 
-  if ($post_data{'action'} !~ /^(login|logout)$/o) {
+  if ($post_data{'action'} !~ /^(login|logout|changepw)$/o) {
     response(500, "unsupported POST data", "", "unsupported content from form: action");
+    exit 0;
   };
 
   if (defined $ENV{'HTTP_COOKIE'}) {
@@ -241,6 +244,18 @@ sub userauth_verify($) {
 
   userauth_check();
 
+  if ($post_data{'action'} eq "changepw") {
+    if (defined $cookie_data{'enc'}) {
+      response(200, "<font color=\"green\">Authenticated user - change password support will come next</font>", "", "", undef, 1);
+    } else {
+      # auth token already cleared
+      response(401, "<font color=\"orange\">Not authenticated (will be redirected back)</font>", "", "", $cookie, 1);
+    };
+    exit 0;
+  };
+
+
+  ## Login procedure
   my $ug = new Data::UUID;
 
   if (! defined $config{'uuid'}) {
@@ -475,16 +490,30 @@ sub userauth_show() {
 
   return if (!defined $user_data{'username'} || $user_data{'username'} eq ""); # no username -> no info
 
-  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
+  $response .= "<table border=\"0\" cellspacing=\"1\" cellpadding=\"1\">\n";
   $response .= " <tr>\n";
   $response .= "  <td>authenticated as user: " . $user_data{'username'} . "</td>\n";
+
   $response .= "  <td rowspan=3>\n";
   $response .= "   <form method=\"post\">\n";
   $response .= "     <input id=\"logout\" type=\"submit\" value=\"Logout\">\n";
 #  $response .= "    <input id=\"pwchange\" type=\"submit\" value=\"Change Password\">\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
   $response .= "   </form>\n";
-  $response .= "  <td>";
+  $response .= "  </td>";
+
+  $response .= "  <td rowspan=3>\n";
+  if (time - $user_data{'time'} < $auth_token_limit_changepw) {
+    $response .= "   <form method=\"post\">\n";
+    $response .= "    <input id=\"changepw\" type=\"submit\" value=\"Change Password\">\n";
+    $response .= "    <input type=\"text\" name=\"action\" value=\"changepw\" hidden>\n";
+    $response .= "   </form>\n";
+  } else {
+    $response .= "last login longer ago<br />please use logout/login<br />to activate password change option";
+  };
+
+  $response .= "  </td>";
+
   $response .= " </tr>\n";
   $response .= " <tr>\n";
   $response .= "  <td>permitted for devices: ";
