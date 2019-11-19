@@ -23,6 +23,7 @@
 # 20191115/bie: remove hour/days from receivedstatus graphics
 # 20191116/bie: improve filled/empty detection on initialization
 # 20191117/bie: bugfix
+# 20191119/bie: cosmetic improvements on pictures
 
 use strict;
 use warnings;
@@ -150,31 +151,50 @@ sub statistics_paintDigit($$$$$) {
 };
 
 ## paint number (maximal 5 digits)
-sub statistics_paintNumber($$$$$) {
+sub statistics_paintNumber($$$$$;$$) {
 	my $image = $_[0];
 	my $x = $_[1];
 	my $y = $_[2];
 	my $num = $_[3];
 	my $col = $_[4];
-        my $mask = 10000;
-        my $d;
-        my $xd = 0;
+	my $orientation = $_[5];
+	my $maxdigits = $_[6];
+  my $mask = 10000;
+  my $d;
+  my $xd = 0;
 
-        if ($num == 0) {
-                statistics_paintDigit($image, $x, $y, $num, $col);
-        } else {
-                while ($mask > $num) {
-                        $mask /= 10;
-                };
+  my $xoffset = 0;
+  my $digits;
 
-                while ($mask >= 1) {
-                        $d = int($num / $mask);
-                        statistics_paintDigit($image, $x + $xd, $y, $d, $col);
-                        $num -= $d * $mask;
-                        $mask /= 10;
-                        $xd += 4;
-                };
-        };
+  if ($num == 0) {
+    $digits = 1;
+  } else {
+    $digits = int(log($num) / log(10)) + 1;
+  };
+
+  if (defined $orientation) {
+    if ($orientation eq "c") {
+      $xoffset = int((4 * ($maxdigits - $digits)) / 2);
+    } elsif ($orientation eq "r") {
+      $xoffset = 4 * ($maxdigits - $digits);
+    };
+  };
+
+  if ($num == 0) {
+    statistics_paintDigit($image, $x + $xoffset, $y, $num, $col);
+  } else {
+    while ($mask > $num) {
+      $mask /= 10;
+    };
+
+    while ($mask >= 1) {
+      $d = int($num / $mask);
+      statistics_paintDigit($image, $x + $xd + $xoffset, $y, $d, $col);
+      $num -= $d * $mask;
+      $mask /= 10;
+      $xd += 4;
+    };
+  };
 };
 
 ### create new XPM
@@ -228,7 +248,7 @@ sub statistics_xpm_create($$) {
 
   # draw x top number
 	for (my $x = 0; $x < $xmax; $x += $xgrid * 6) {
-    statistics_paintNumber($i, $x + $lborder - 1, 2, int($x / $xdiv), $color_number);
+    statistics_paintNumber($i, $x + $lborder - 3, 2, int($x / $xdiv), $color_number, "c", 2);
 	  # draw x ticks number
 		$i->xy($x + $lborder, $tborder - 2 , $color_ticks);
 		$i->xy($x + $lborder, $height - $bborder + 1 , $color_ticks);
@@ -248,7 +268,9 @@ sub statistics_xpm_create($$) {
 
   # draw y left number
 	for (my $y = 0; $y < $ymax; $y += $ygrid * 2) {
-    statistics_paintNumber($i, 2, $y + $tborder - 1, int($y * $xmax / $ydiv), $color_number);
+    my $digits = 2;
+    $digits = 4 if ($type eq "receivedstatus");
+    statistics_paintNumber($i, 2, $y + $tborder - 2, int($y * $xmax / $ydiv), $color_number, "r", $digits);
 	  # draw y ticks number
 		$i->xy(0 + $lborder - 2, $y + $tborder, $color_ticks);
 		$i->xy($width - $rborder + 1, $y + $tborder, $color_ticks);
@@ -677,3 +699,5 @@ sub statistics_html_actions($) {
 
   return $response;
 };
+
+# vim: set noai ts=2 sw=2 et:
