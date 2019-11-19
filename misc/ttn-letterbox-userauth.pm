@@ -9,8 +9,11 @@
 # Authors:  Dr. Peter Bieringer (bie)
 #
 #
-# Supported environment
+# Supported environment:
 #   - TTN_LETTERBOX_DEBUG_USERAUTH
+#
+# Supported settings in configuration file:
+#   - userauth.feature.changepw=1 (currently unfinished)
 #
 # user file:
 #   - name: $datadir . "/ttn.users.list"
@@ -39,9 +42,7 @@
 # 20191116/bie: initial version
 # 20191117/bie: major rework
 # 20191118/bie: honor time token from cookie, store expiry in auth cookie
-#
-# TODO
-# - implement password change
+# 20191119/bie: start implementing password change (still unfinished)
 
 use strict;
 use warnings;
@@ -176,7 +177,7 @@ sub userauth_generate() {
     $response .= "      <td>Password:</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "     <tr>\n";
-    $response .= "      <td></td><td><input type=\"submit\" value=\"Login\" style=\"width:100px;height:50px;\"></td>\n";
+    $response .= "      <td></td><td><input type=\"submit\" value=\"Login\" style=\"background-color:#00A000;width:100px;height:50px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "    </table>\n";
     $response .= "    <input type=\"text\" name=\"session_token_form\" value=\"" . $session_token_form . "\" hidden>\n";
@@ -496,23 +497,23 @@ sub userauth_show() {
 
   $response .= "  <td rowspan=3>\n";
   $response .= "   <form method=\"post\">\n";
-  $response .= "     <input id=\"logout\" type=\"submit\" value=\"Logout\">\n";
-#  $response .= "    <input id=\"pwchange\" type=\"submit\" value=\"Change Password\">\n";
+  $response .= "     <input id=\"logout\" type=\"submit\" value=\"Logout\" style=\"background-color:#FFA0E0;\">\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
   $response .= "   </form>\n";
   $response .= "  </td>";
 
-  $response .= "  <td rowspan=3>\n";
-  if (time - $user_data{'time'} < $auth_token_limit_changepw) {
-    $response .= "   <form method=\"post\">\n";
-    $response .= "    <input id=\"changepw\" type=\"submit\" value=\"Change Password\">\n";
-    $response .= "    <input type=\"text\" name=\"action\" value=\"changepw\" hidden>\n";
-    $response .= "   </form>\n";
-  } else {
-    $response .= "last login longer ago<br />please use logout/login<br />to activate password change option";
+  if (defined $config{"userauth.feature.changepw"} && $config{"userauth.feature.changepw"} eq "1") {
+    $response .= "  <td rowspan=3>\n";
+    if (time - $user_data{'time'} < $auth_token_limit_changepw) {
+      $response .= "   <form method=\"post\">\n";
+      $response .= "    <input id=\"changepw\" type=\"submit\" value=\"Change Password\" style=\"background-color:#40A0B0;\">\n";
+      $response .= "    <input type=\"text\" name=\"action\" value=\"changepw\" hidden>\n";
+      $response .= "   </form>\n";
+    } else {
+      $response .= "last login longer ago<br />please use logout/login<br />to activate password change option";
+    };
+    $response .= "  </td>";
   };
-
-  $response .= "  </td>";
 
   $response .= " </tr>\n";
   $response .= " <tr>\n";
