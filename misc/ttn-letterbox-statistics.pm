@@ -607,6 +607,7 @@ sub statistics_get_graphics($$) {
   my $dev_id = $_[0];
 
   my %html;
+  my $mobile = 0;
 
   logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'statistics'}->{'debug'};
 
@@ -627,6 +628,7 @@ sub statistics_get_graphics($$) {
         # scale down on mobile devices
         $xscale -= 1;
         $yscale -= 1;
+        $mobile = 1;
       };
 
       my $width = $image->width * $xscale;
@@ -637,7 +639,7 @@ sub statistics_get_graphics($$) {
       my $tborder = $statistics_sizes{$type}->{'tborder'} * $yscale;
       my $bborder = $statistics_sizes{$type}->{'bborder'} * $yscale;
 
-      my $xmax = $statistics_sizes{$type}->{'xmax'} * $yscale;
+      my $xmax = $statistics_sizes{$type}->{'xmax'} * $xscale;
       my $ymax = $statistics_sizes{$type}->{'ymax'} * $yscale;
 
       my $dborder = $statistics_sizes{$type}->{'dborder'};
@@ -647,15 +649,30 @@ sub statistics_get_graphics($$) {
       $image_scaled->copyResized($image, $dborder, $dborder, 0, 0, $width, $height, $image->width, $image->height);
 
       my $white = $image_scaled->colorAllocate(255,255,255);
+      my $grey = $image_scaled->colorAllocate(240,240,240);
 
       my $text;
       my $textsize = 5;
 
-      $text = $dev_id . ": " . $statistics_sizes{$type}->{'ttext'} . "  " . strftime("%Y-%m-%d %H:%M:%S", gmtime(time));
-      $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, 1, $text, $white);
+      # x-left
+      $text = $dev_id;
+      $image_scaled->string(gdTinyFont, $dborder + $textsize, 1, $text, $grey);
 
+      # y-top
+      $text = strftime("%Y-%m-%d %H:%M:%S", gmtime(time));
+      $image_scaled->stringUp(gdTinyFont, 1, length($text) * $textsize + $border + 3, $text, $grey);
+
+      if ($mobile == 1 && $type eq "receivedstatus") {
+        # too less space
+      } else {
+        # x-right
+        $text = $statistics_sizes{$type}->{'ttext'};
+        $image_scaled->string(gdTinyFont, $width - length($text) * $textsize, 1, $text, $white);
+      };
+
+      # y-bottom
       $text = $statistics_sizes{$type}->{'ltext'};
-      $image_scaled->stringUp(gdTinyFont, 1, $ymax / 2 + $tborder + $dborder + length($text)/2 * $textsize, $text, $white);
+      $image_scaled->stringUp(gdTinyFont, 1, $height - 1, $text, $white);
 
       my $png_base64 = encode_base64($image_scaled->png(9), "");
       $html{$type} = '<img alt="' . $type . '" src="data:image/png;base64,' . $png_base64 . '">';
