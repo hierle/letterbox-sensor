@@ -24,6 +24,7 @@
 # 20191116/bie: improve filled/empty detection on initialization
 # 20191117/bie: bugfix
 # 20191119/bie: cosmetic improvements on pictures
+# 20191120/bie: insert dev_id into image
 
 use strict;
 use warnings;
@@ -650,7 +651,7 @@ sub statistics_get_graphics($$) {
       my $text;
       my $textsize = 5;
 
-      $text = $statistics_sizes{$type}->{'ttext'};
+      $text = $dev_id . ": " . $statistics_sizes{$type}->{'ttext'} . "  " . strftime("%Y-%m-%d %H:%M:%S", gmtime(time));
       $image_scaled->string(gdTinyFont, $xmax / 2 + $lborder + $dborder - length($text)/2 * $textsize, 1, $text, $white);
 
       $text = $statistics_sizes{$type}->{'ltext'};

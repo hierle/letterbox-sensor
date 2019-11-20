@@ -21,6 +21,7 @@
 # 20191113/bie: implement rrdRange support, adjust rrd database
 # 20191114/bie: change colors of rrdRange buttons, use different xgrid for mobile devices
 # 20191115/bie: remove border of RRD to get it smaller
+# 20191120/bie: insert dev_id into title
 
 use strict;
 use warnings;
@@ -84,21 +85,25 @@ my %rrd_config = (
 ## ranges
 my %rrd_range = (
   'day' => {
+      'label' => 'hour-of-day',
       'start' => 'end-24h',
       'xgrid' => "HOUR:1:HOUR:6:HOUR:2:0:%H",
       'xgrid_mobile' => "HOUR:1:HOUR:6:HOUR:4:0:%H"
   },
   'week' => {
+      'label' => 'day-of-month',
       'start' => 'end-7d',
       'xgrid' => "HOUR:6:DAY:1:DAY:1:86400:%d",
       'xgrid_mobile' => "HOUR:6:DAY:1:DAY:1:86400:%d"
   },
   'month' => {
+      'label' => 'week-of-year',
       'start' => 'end-1M',
       'xgrid' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
       'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:CW %V"
   },
   'year' => {
+      'label' => 'month-of-year',
       'start' => 'end-1y',
       'xgrid' => "MONTH:1:MONTH:1:MONTH:1:0:%m",
       'xgrid_mobile' => "MONTH:1:MONTH:1:MONTH:2:0:%m"
@@ -298,7 +303,7 @@ sub rrd_get_graphics($$) {
       my $height = 80;
       my $start = $rrd_range{$rrdRange}->{'start'};
       my $xgrid = $rrd_range{$rrdRange}->{'xgrid'};
-      my $title = $rrdRange;
+      my $title = $rrd_range{$rrdRange}->{'label'};
       my $label = $type;
 
       if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
@@ -309,8 +314,9 @@ sub rrd_get_graphics($$) {
 
       if ($type eq "sensor") {
         RRDs::graph($output,
-          "--title=" . $title,
+          "--title=" . $dev_id . ": " . $title,
           "--vertical-label=" . $label,
+          "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
           "--no-legend",
           "--end=now",
           "--start=" . $start,
@@ -326,8 +332,9 @@ sub rrd_get_graphics($$) {
         );
       } else {
         RRDs::graph($output,
-          "--title=" . $title,
+          "--title=" . $dev_id . ": " . $title,
           "--vertical-label=" . $label,
+          "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
           "--no-legend",
           "--end=now",
           "--start=" . $start,
