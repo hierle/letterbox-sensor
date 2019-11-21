@@ -25,6 +25,7 @@
 # 20191117/bie: bugfix
 # 20191119/bie: cosmetic improvements on pictures
 # 20191120/bie: insert dev_id into image
+# 20191121/bie: minor bugfixes
 
 use strict;
 use warnings;
@@ -87,7 +88,7 @@ my %statistics_sizes = (
       'ymax' => 100, # 100 days
       'xgrid' => 2,
       'ygrid' => 5,
-      'xdiv' => 2,
+      'xdiv' => 1,
       'ydiv' => 1,
       'xscale' => 3,
       'yscale' => 3,
@@ -659,7 +660,7 @@ sub statistics_get_graphics($$) {
       $image_scaled->string(gdTinyFont, $dborder + $textsize, 1, $text, $grey);
 
       # y-top
-      $text = strftime("%Y-%m-%d %H:%M:%S", gmtime(time));
+      $text = strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
       $image_scaled->stringUp(gdTinyFont, 1, length($text) * $textsize + $border + 3, $text, $grey);
 
       if ($mobile == 1 && $type eq "receivedstatus") {
