@@ -97,6 +97,7 @@
 # 20191115/bie: cosmetic name change
 # 20191116/bie: rename HTTP_TTN_LETTERBOX_QUERY_STRING to HTTP_X_TTN_LETTERBOX_QUERY_STRING
 # 20191117/bie: implement hooks for authentication, cosmetics, reorg
+# 20191123/bie: cosmetics, minor bugfixes
 #
 # TODO:
 # - lock around file writes
@@ -145,9 +146,10 @@ our %config = (
   'debug'         => 0      # debug
 );
 
+
 # global data
 our %querystring;
-our $datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
+our $datadir;
 our $conffile;
 
 # set time strings
@@ -166,7 +168,9 @@ if (!defined $ENV{'DOCUMENT_ROOT'}) {
   response(500, "major problem found", "", "'DOCUMENT_ROOT' not defined in environment");
   exit;
 };
+
 my $confdir = $ENV{'DOCUMENT_ROOT'} . "/../conf"; # default
+$datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
 
 # read optional config
 $conffile = $confdir . "/ttn-letterbox.conf";
@@ -1035,7 +1039,7 @@ sub letter($) {
         $bg = " bgcolor=" . $bg_colors{lc($1)};
         # no fontcolor
         $fc = "";
-      } elsif ($info =~ /LastReceived/o) {
+      } elsif ($info =~ /Last(Received|Changed)/o) {
         if (defined $bg_colors{$dev_hash{$dev_id}->{'box'}}) {
           # set bgcolor if defined
           $bg = " bgcolor=" . $bg_colors{$dev_hash{$dev_id}->{'box'}};
