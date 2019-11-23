@@ -5,12 +5,12 @@ EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 1
-Title ""
+Title "Letterbox Sensor"
 Date ""
-Rev ""
+Rev "2"
 Comp ""
-Comment1 ""
-Comment2 ""
+Comment1 "Work In Progress"
+Comment2 "Next Generation"
 Comment3 ""
 Comment4 ""
 $EndDescr
@@ -161,21 +161,21 @@ $EndComp
 $Comp
 L Connector:AVR-ISP-6 J2
 U 1 1 5D2E9C50
-P 4000 6450
-F 0 "J2" H 3721 6546 50  0000 R CNN
-F 1 "AVR-ISP-6" H 3721 6455 50  0000 R CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical_SMD" V 3750 6500 50  0001 C CNN
-F 3 " ~" H 2725 5900 50  0001 C CNN
-	1    4000 6450
+P 4800 6700
+F 0 "J2" H 4521 6796 50  0000 R CNN
+F 1 "AVR-ISP-6" H 4521 6705 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical_SMD" V 4550 6750 50  0001 C CNN
+F 3 " ~" H 3525 6150 50  0001 C CNN
+	1    4800 6700
 	1    0    0    -1  
 $EndComp
-Text GLabel 4400 6550 2    50   BiDi ~ 0
+Text GLabel 5200 6800 2    50   BiDi ~ 0
 RST
-Text GLabel 4400 6450 2    50   BiDi ~ 0
+Text GLabel 5200 6700 2    50   BiDi ~ 0
 SCK
-Text GLabel 4400 6350 2    50   BiDi ~ 0
+Text GLabel 5200 6600 2    50   BiDi ~ 0
 MOSI
-Text GLabel 4400 6250 2    50   BiDi ~ 0
+Text GLabel 5200 6500 2    50   BiDi ~ 0
 MISO
 Text GLabel 3350 2750 3    50   BiDi ~ 0
 MOSI
@@ -186,23 +186,23 @@ SCK
 $Comp
 L power:GND #PWR0103
 U 1 1 5D2EDF17
-P 3900 6850
-F 0 "#PWR0103" H 3900 6600 50  0001 C CNN
-F 1 "GND" H 3905 6677 50  0000 C CNN
-F 2 "" H 3900 6850 50  0001 C CNN
-F 3 "" H 3900 6850 50  0001 C CNN
-	1    3900 6850
+P 4700 7100
+F 0 "#PWR0103" H 4700 6850 50  0001 C CNN
+F 1 "GND" H 4705 6927 50  0000 C CNN
+F 2 "" H 4700 7100 50  0001 C CNN
+F 3 "" H 4700 7100 50  0001 C CNN
+	1    4700 7100
 	1    0    0    -1  
 $EndComp
 $Comp
 L power:+3V3 #PWR0104
 U 1 1 5D2EEB63
-P 3900 5950
-F 0 "#PWR0104" H 3900 5800 50  0001 C CNN
-F 1 "+3V3" H 3915 6123 50  0000 C CNN
-F 2 "" H 3900 5950 50  0001 C CNN
-F 3 "" H 3900 5950 50  0001 C CNN
-	1    3900 5950
+P 4700 6200
+F 0 "#PWR0104" H 4700 6050 50  0001 C CNN
+F 1 "+3V3" H 4715 6373 50  0000 C CNN
+F 2 "" H 4700 6200 50  0001 C CNN
+F 3 "" H 4700 6200 50  0001 C CNN
+	1    4700 6200
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -464,7 +464,7 @@ Connection ~ 6500 3500
 Wire Wire Line
 	6500 3500 6700 3500
 Text Notes 6700 2200 0    50   ~ 0
-Option Switch (2 Bit)
+Next Generation: Option Switch (2 Bit)
 $Comp
 L Switch:SW_Push SW2
 U 1 1 5DE24A04
@@ -490,6 +490,6 @@ Wire Wire Line
 Connection ~ 3250 5400
 Wire Wire Line
 	3250 5400 3550 5400
-Text Notes 2650 6200 0    50   ~ 0
-Reset Button
+Text Notes 2550 6200 0    50   ~ 0
+Next Generation: Reset Button
 $EndSCHEMATC
