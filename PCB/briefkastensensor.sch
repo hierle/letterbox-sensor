@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:briefkastensensor-cache
-EELAYER 29 0
+EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -42,17 +42,6 @@ F 8 "Unavailable" H 6200 4500 50  0001 L BNN "Feld8"
 	0    -1   -1   0   
 $EndComp
 $Comp
-L Device:RTRIM R3
-U 1 1 5CC04BAD
-P 7400 4450
-F 0 "R3" H 7527 4496 50  0000 L CNN
-F 1 "RTRIM (1MEG)" H 7527 4405 50  0000 L CNN
-F 2 "Potentiometer_SMD:Potentiometer_Bourns_3314G_Vertical" V 7330 4450 50  0001 C CNN
-F 3 "~" H 7400 4450 50  0001 C CNN
-	1    7400 4450
-	1    0    0    -1  
-$EndComp
-$Comp
 L pspice:R R2
 U 1 1 5CC04D64
 P 5750 5300
@@ -90,24 +79,14 @@ $EndComp
 $Comp
 L power:GND #PWR04
 U 1 1 5CC055EB
-P 7400 5800
-F 0 "#PWR04" H 7400 5550 50  0001 C CNN
-F 1 "GND" H 7405 5627 50  0000 C CNN
-F 2 "" H 7400 5800 50  0001 C CNN
-F 3 "" H 7400 5800 50  0001 C CNN
-	1    7400 5800
+P 8500 5850
+F 0 "#PWR04" H 8500 5600 50  0001 C CNN
+F 1 "GND" H 8505 5677 50  0000 C CNN
+F 2 "" H 8500 5850 50  0001 C CNN
+F 3 "" H 8500 5850 50  0001 C CNN
+	1    8500 5850
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	6800 4700 7400 4700
-Wire Wire Line
-	7400 4700 7400 5300
-Wire Wire Line
-	7400 4600 7400 4700
-Connection ~ 7400 4700
-Wire Wire Line
-	6300 5300 7400 5300
-Connection ~ 7400 5300
 $Comp
 L briefkastensensor-rescue:RFM95W-868S2-RF_AM_FM U2
 U 1 1 5CC097E3
@@ -137,13 +116,6 @@ Wire Wire Line
 Wire Wire Line
 	3850 1750 3850 1600
 Wire Wire Line
-	7050 4300 7400 4300
-Wire Wire Line
-	6800 4300 7050 4300
-Connection ~ 7050 4300
-Wire Wire Line
-	7050 4300 7050 3900
-Wire Wire Line
 	4150 4900 4150 4700
 Wire Wire Line
 	4150 4700 5100 4700
@@ -153,41 +125,37 @@ Wire Wire Line
 	4150 4300 5600 4300
 Wire Wire Line
 	4000 3900 4000 4400
-Wire Wire Line
-	4000 3900 7050 3900
-Wire Wire Line
-	7400 5300 7400 5800
 $Comp
 L Connector_Generic:Conn_01x02 J1
 U 1 1 5D0A3A76
-P 6050 2800
-F 0 "J1" H 6130 2792 50  0000 L CNN
-F 1 "Conn_01x02" H 6130 2701 50  0000 L CNN
-F 2 "Battery:BatteryHolder_Keystone_1058_1x2032" H 6050 2800 50  0001 C CNN
-F 3 "~" H 6050 2800 50  0001 C CNN
-	1    6050 2800
+P 5650 2300
+F 0 "J1" H 5730 2292 50  0000 L CNN
+F 1 "Conn_01x02" H 5730 2201 50  0000 L CNN
+F 2 "Battery:BatteryHolder_Keystone_1058_1x2032" H 5650 2300 50  0001 C CNN
+F 3 "~" H 5650 2300 50  0001 C CNN
+	1    5650 2300
 	1    0    0    -1  
 $EndComp
 $Comp
 L power:GND #PWR0101
 U 1 1 5D0D2F9D
-P 5850 2900
-F 0 "#PWR0101" H 5850 2650 50  0001 C CNN
-F 1 "GND" H 5855 2727 50  0000 C CNN
-F 2 "" H 5850 2900 50  0001 C CNN
-F 3 "" H 5850 2900 50  0001 C CNN
-	1    5850 2900
+P 5450 2400
+F 0 "#PWR0101" H 5450 2150 50  0001 C CNN
+F 1 "GND" H 5455 2227 50  0000 C CNN
+F 2 "" H 5450 2400 50  0001 C CNN
+F 3 "" H 5450 2400 50  0001 C CNN
+	1    5450 2400
 	1    0    0    -1  
 $EndComp
 $Comp
 L power:+3V3 #PWR0102
 U 1 1 5D0D381A
-P 5850 2800
-F 0 "#PWR0102" H 5850 2650 50  0001 C CNN
-F 1 "+3V3" H 5865 2973 50  0000 C CNN
-F 2 "" H 5850 2800 50  0001 C CNN
-F 3 "" H 5850 2800 50  0001 C CNN
-	1    5850 2800
+P 5450 2300
+F 0 "#PWR0102" H 5450 2150 50  0001 C CNN
+F 1 "+3V3" H 5465 2473 50  0000 C CNN
+F 2 "" H 5450 2300 50  0001 C CNN
+F 3 "" H 5450 2300 50  0001 C CNN
+	1    5450 2300
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -288,10 +256,10 @@ Text GLabel 3050 4700 2    50   BiDi ~ 0
 MISO
 Text GLabel 3050 4800 2    50   BiDi ~ 0
 MOSI
-Text GLabel 3050 5400 2    50   BiDi ~ 0
+Text GLabel 3550 5400 2    50   BiDi ~ 0
 RST
 Wire Wire Line
-	2450 5700 2450 5850
+	2450 5700 2450 6050
 Wire Wire Line
 	4000 4400 3050 4400
 Wire Wire Line
@@ -299,7 +267,7 @@ Wire Wire Line
 Wire Wire Line
 	3050 4900 4150 4900
 Wire Wire Line
-	3050 5300 5500 5300
+	3050 5300 5000 5300
 Wire Wire Line
 	3450 5200 3050 5200
 Wire Wire Line
@@ -318,12 +286,12 @@ $EndComp
 $Comp
 L power:GND #PWR02
 U 1 1 5CC04235
-P 2450 5850
-F 0 "#PWR02" H 2450 5600 50  0001 C CNN
-F 1 "GND" H 2455 5677 50  0000 C CNN
-F 2 "" H 2450 5850 50  0001 C CNN
-F 3 "" H 2450 5850 50  0001 C CNN
-	1    2450 5850
+P 2450 6300
+F 0 "#PWR02" H 2450 6050 50  0001 C CNN
+F 1 "GND" H 2455 6127 50  0000 C CNN
+F 2 "" H 2450 6300 50  0001 C CNN
+F 3 "" H 2450 6300 50  0001 C CNN
+	1    2450 6300
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
@@ -348,4 +316,180 @@ Wire Wire Line
 Wire Wire Line
 	3050 1750 3150 1750
 Connection ~ 3150 1750
+$Comp
+L pspice:R R4
+U 1 1 5DD94C34
+P 7450 4300
+F 0 "R4" V 7550 4250 50  0000 L CNN
+F 1 "1 KOHM" V 7300 4150 50  0000 L CNN
+F 2 "Resistor_SMD:R_1206_3216Metric" H 7450 4300 50  0001 C CNN
+F 3 "~" H 7450 4300 50  0001 C CNN
+	1    7450 4300
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	4000 3900 6800 3900
+Wire Wire Line
+	6800 3900 6800 4300
+Wire Wire Line
+	7200 4300 6800 4300
+Connection ~ 6800 4300
+$Comp
+L Device:D_Schottky D4
+U 1 1 5DDC0DF4
+P 7850 3500
+F 0 "D4" H 7850 3716 50  0000 C CNN
+F 1 "D_Schottky" H 7850 3625 50  0000 C CNN
+F 2 "" H 7850 3500 50  0001 C CNN
+F 3 "~" H 7850 3500 50  0001 C CNN
+	1    7850 3500
+	-1   0    0    -1  
+$EndComp
+$Comp
+L Device:RTRIM R3
+U 1 1 5DDD2989
+P 7850 4300
+F 0 "R3" V 7610 4300 50  0000 C CNN
+F 1 "1 MOHM" V 7701 4300 50  0000 C CNN
+F 2 "" V 7780 4300 50  0001 C CNN
+F 3 "~" H 7850 4300 50  0001 C CNN
+	1    7850 4300
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	6300 5300 8500 5300
+Wire Wire Line
+	8500 4300 8500 4700
+Wire Wire Line
+	8000 4300 8500 4300
+Wire Wire Line
+	6800 4700 8500 4700
+Connection ~ 8500 5300
+Wire Wire Line
+	8500 5300 8500 5850
+Connection ~ 8500 4700
+Wire Wire Line
+	8500 4700 8500 5300
+Wire Wire Line
+	8000 3500 8500 3500
+Wire Wire Line
+	8500 3500 8500 4300
+Connection ~ 8500 4300
+$Comp
+L Device:D_Schottky D?
+U 1 1 5DDEC24A
+P 7350 3500
+F 0 "D?" H 7350 3716 50  0000 C CNN
+F 1 "D_Schottky" H 7350 3625 50  0000 C CNN
+F 2 "" H 7350 3500 50  0001 C CNN
+F 3 "~" H 7350 3500 50  0001 C CNN
+	1    7350 3500
+	-1   0    0    -1  
+$EndComp
+$Comp
+L Device:D_Schottky D?
+U 1 1 5DDEDA27
+P 6850 3500
+F 0 "D?" H 6850 3716 50  0000 C CNN
+F 1 "D_Schottky" H 6850 3625 50  0000 C CNN
+F 2 "" H 6850 3500 50  0001 C CNN
+F 3 "~" H 6850 3500 50  0001 C CNN
+	1    6850 3500
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	3050 4200 3350 4200
+Wire Wire Line
+	3350 4200 3350 3500
+Wire Wire Line
+	3350 3500 5500 3500
+Wire Wire Line
+	7000 3500 7200 3500
+$Comp
+L pspice:R R5
+U 1 1 5DDF0920
+P 5250 3700
+F 0 "R5" V 5350 3650 50  0000 L CNN
+F 1 "10 KOHM" V 5100 3550 50  0000 L CNN
+F 2 "Resistor_SMD:R_1206_3216Metric" H 5250 3700 50  0001 C CNN
+F 3 "~" H 5250 3700 50  0001 C CNN
+	1    5250 3700
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	5000 3700 5000 5300
+Connection ~ 5000 5300
+Wire Wire Line
+	5000 5300 5500 5300
+Wire Wire Line
+	5500 3700 5500 3500
+Connection ~ 5500 3500
+$Comp
+L Switch:SW_DIP_x02 SW1
+U 1 1 5DDF5027
+P 7900 2650
+F 0 "SW1" H 7900 3017 50  0000 C CNN
+F 1 "SW_DIP_x02" H 7900 2926 50  0000 C CNN
+F 2 "" H 7900 2650 50  0001 C CNN
+F 3 "~" H 7900 2650 50  0001 C CNN
+	1    7900 2650
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7500 3500 7600 3500
+Wire Wire Line
+	5500 3500 6500 3500
+Wire Wire Line
+	8200 2650 8500 2650
+Wire Wire Line
+	8500 2650 8500 3500
+Connection ~ 8500 3500
+Wire Wire Line
+	7600 2550 7600 2650
+Wire Wire Line
+	7600 2650 7600 3500
+Connection ~ 7600 2650
+Connection ~ 7600 3500
+Wire Wire Line
+	7600 3500 7700 3500
+Wire Wire Line
+	8200 2550 8400 2550
+Wire Wire Line
+	8400 2550 8400 2050
+Wire Wire Line
+	8400 2050 6500 2050
+Wire Wire Line
+	6500 2050 6500 3500
+Connection ~ 6500 3500
+Wire Wire Line
+	6500 3500 6700 3500
+Text Notes 6700 2200 0    50   ~ 0
+Option Switch (2 Bit)
+$Comp
+L Switch:SW_Push SW2
+U 1 1 5DE24A04
+P 2900 6050
+F 0 "SW2" H 2900 6335 50  0000 C CNN
+F 1 "Reset" H 2900 6244 50  0000 C CNN
+F 2 "" H 2900 6250 50  0001 C CNN
+F 3 "~" H 2900 6250 50  0001 C CNN
+	1    2900 6050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2450 6050 2700 6050
+Connection ~ 2450 6050
+Wire Wire Line
+	2450 6050 2450 6300
+Wire Wire Line
+	3100 6050 3250 6050
+Wire Wire Line
+	3250 6050 3250 5400
+Wire Wire Line
+	3050 5400 3250 5400
+Connection ~ 3250 5400
+Wire Wire Line
+	3250 5400 3550 5400
+Text Notes 2650 6200 0    50   ~ 0
+Reset Button
 $EndSCHEMATC
