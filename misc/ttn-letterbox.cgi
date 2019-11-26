@@ -54,6 +54,10 @@
 #   - details=[on|off]
 #   - autoreload=[on|off]
 #
+# Supported "Accept"
+#   text/plain: response in plain text
+#   application/json: response in json text
+#
 # Logging
 #   - warnings/errors will be logged to web server error log using "print STDERR"
 #
@@ -98,6 +102,7 @@
 # 20191116/bie: rename HTTP_TTN_LETTERBOX_QUERY_STRING to HTTP_X_TTN_LETTERBOX_QUERY_STRING
 # 20191117/bie: implement hooks for authentication, cosmetics, reorg
 # 20191123/bie: cosmetics, minor bugfixes
+# 20191126/bie: add support for plain and json output
 #
 # TODO:
 # - lock around file writes
@@ -720,25 +725,31 @@ sub req_get() {
 
     if (defined $filledtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
+      $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = $filledtime_ut;
       $timeLastChange = $filledtime_ut;
       $typeLastChange = "Filled";
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = "n/a";
+      $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = 0;
     };
 
     if (defined $emptiedtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
+      $dev_hash{$dev_id}->{'values'}->{'timeLastEmptied'} = $emptiedtime_ut;
       if ($emptiedtime_ut > $timeLastChange) {
         $timeLastChange = $emptiedtime_ut;
         $typeLastChange = "Emptied";
       };
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = "n/a";
+      $dev_hash{$dev_id}->{'values'}->{'timeLastEmptied'} = 0;
     };
 
     $dev_hash{$dev_id}->{'info'}->{'timeNow'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
+    $dev_hash{$dev_id}->{'values'}->{'timeNow'} = time;
     if (defined $timeLastChange) {
       $dev_hash{$dev_id}->{'info'}->{'deltaLastChanged'} = deltatime_string(time - $timeLastChange);
+      $dev_hash{$dev_id}->{'values'}->{'deltaLastChanged'} = time - $timeLastChange;
     };
 
     my $deltaLastReceived = time - $timeReceived_ut;
@@ -746,6 +757,7 @@ sub req_get() {
     $dev_hash{$dev_id}->{'values'}->{'deltaLastReceived'} = $deltaLastReceived;
     $dev_hash{$dev_id}->{'info'}->{'deltaLastReceived'} = deltatime_string($deltaLastReceived);
     $dev_hash{$dev_id}->{'info'}->{'timeLastReceived'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($timeReceived_ut));
+    $dev_hash{$dev_id}->{'values'}->{'timeLastReceived'} = $timeReceived_ut;
     $dev_hash{$dev_id}->{'info'}->{'sensor'} = $sensor;
     $dev_hash{$dev_id}->{'info'}->{'threshold'} = $threshold;
     $dev_hash{$dev_id}->{'info'}->{'tempC'} = $tempC;
@@ -778,7 +790,11 @@ sub req_get() {
   };
 
   # create output
-  letter(\%dev_hash);
+  if (defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\/json)$/o) {
+    letter_text(\%dev_hash, $1);
+  } else {
+    letter(\%dev_hash);
+  };
 };
 
 
@@ -825,6 +841,9 @@ sub response($$;$$$$$) {
 
   $cgi_headers{'-cookie'} = $cookie if (defined $cookie);
   $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $ENV{'REQUEST_URI'} if (defined $refresh_delay);
+  if (defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\|json)$/o) {
+    $cgi_headers{'-Type'} = "$1";
+  };
 
   # Header
   print CGI::header(%cgi_headers);
@@ -841,7 +860,9 @@ sub response($$;$$$$$) {
   };
   sleep($sleep);
 
-  if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
+  if ((defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED")
+    ||(defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\|json)$/o)
+  ) {
     # called by SSI (embedded in HTML)
     print "$message";
   } else {
@@ -1103,6 +1124,79 @@ sub letter($) {
   };
 
   response(200, $response, $header);
+};
+
+
+## letterbox text/json generation
+sub letter_text($$) {
+  my $dev_hash_p = $_[0];
+  my $format = $_[1];
+
+  my %dev_hash;
+
+  my %result;
+  my @device_info;
+
+  my $response;
+  my @response_text;
+
+  # hook for authentication (acl)
+  for my $dev_id (sort keys %$dev_hash_p) {
+    my $acl_found = 0;
+    for my $module (sort keys %hooks) {
+      if (defined $hooks{$module}->{'auth_check_acl'}) {
+        $acl_found = 1;
+        if ($hooks{$module}->{'auth_check_acl'}->($dev_id) > 0) {
+          # warn("add after acl check dev_id=" . $dev_id);
+          $dev_hash{$dev_id} = $$dev_hash_p{$dev_id};
+        };
+      };
+    };
+
+    if ($acl_found == 0) {
+      # no ACL hook active
+      $dev_hash{$dev_id} = $$dev_hash_p{$dev_id};
+    };
+  };
+
+  if (scalar(keys %dev_hash) == 0) {
+    # no devices in list or permitted
+    $result{'statusText'} = "no devices found or permitted";
+    $result{'statusCode'} = 401;
+  } else {
+    $result{'statusText'} = "devices found";
+    $result{'statusCode'} = 200;
+
+    for my $dev_id (sort keys %dev_hash) {
+      push @device_info, $dev_hash{$dev_id};
+      for my $key (sort keys $dev_hash{$dev_id}) {
+        if (ref($dev_hash{$dev_id}->{$key}) eq 'HASH') {
+          for my $subkey (sort keys $dev_hash{$dev_id}->{$key}) {
+            push @response_text, "device." . $dev_id . "." . $key . "." . $subkey . "=\"" . $dev_hash{$dev_id}->{$key}->{$subkey} . "\"";
+          };
+        } else {
+            push @response_text, "device." . $dev_id . "." . $key . "=\"" . $dev_hash{$dev_id}->{$key} . "\"";
+        };
+      };
+    };
+
+    $result{'devices'} = \@device_info;
+  };
+
+  push @response_text, "statusText=\"" . $result{'statusText'} . "\"";
+  push @response_text, "statusCode=" . $result{'statusCode'};
+
+  if ($format eq "application/json") {
+    # encode to json
+    #$response = encode_json(\%result);
+    my $json = JSON->new->allow_nonref;
+    $response = $json->pretty->encode(\%result);
+  } else {
+    $response = join("\n", @response_text);
+    $response .= "\n";
+  };
+
+  response(200, $response, undef);
 };
 
 # vim: set noai ts=2 sw=2 et:
