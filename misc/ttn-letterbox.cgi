@@ -287,6 +287,7 @@ $translations{'EMPTIED'}->{'de'} = "AUSGELEERT";
 $translations{'FILLED'}->{'de'} = "GEFÜLLT";
 $translations{'FULL'}->{'de'} = "VOLL";
 $translations{'hosted on'}->{'de'} = "bereitgestellt durch";
+$translations{'redirect in'}->{'de'} = "weitergeleitet in";
 $translations{'Letterbox Sensor Status'}->{'de'} = "Briefkasten Sensor Status";
 $translations{'Reload'}->{'de'} = "Neu laden";
 $translations{'Autoreload'}->{'de'} = "Autom neu laden";
