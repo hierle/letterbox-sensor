@@ -22,6 +22,7 @@
 # 20191114/bie: change colors of rrdRange buttons, use different xgrid for mobile devices
 # 20191115/bie: remove border of RRD to get it smaller
 # 20191120/bie: insert dev_id into title
+# 20191214/bie: add "de" translation
 
 use strict;
 use warnings;
@@ -30,10 +31,12 @@ use GD;
 use JSON;
 use Date::Parse;
 use MIME::Base64;
+use utf8;
 
 ## globals
 our %hooks;
 our %config;
+our %translations;
 
 
 ## prototyping
@@ -51,6 +54,16 @@ $hooks{'rrd'}->{'get_graphics'} = \&rrd_get_graphics;
 $hooks{'rrd'}->{'store_data'} = \&rrd_store_data;
 $hooks{'rrd'}->{'store_data'} = \&rrd_store_data;
 $hooks{'rrd'}->{'html_actions'} = \&rrd_html_actions;
+
+## translations
+$translations{'day'}->{'de'} = "Tag";
+$translations{'week'}->{'de'} = "Woche";
+$translations{'month'}->{'de'} = "Monat";
+$translations{'year'}->{'de'} = "Jahr";
+$translations{'month-of-year'}->{'de'} = "Monat-vom-Jahr";
+$translations{'week-of-year'}->{'de'} = "Woche-vom-Jahr";
+$translations{'day-of-month'}->{'de'} = "Tag-vom-Monat";
+$translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 
 
 ## statistics
@@ -314,7 +327,7 @@ sub rrd_get_graphics($$) {
 
       if ($type eq "sensor") {
         RRDs::graph($output,
-          "--title=" . $dev_id . ": " . $title,
+          "--title=" . $dev_id . ": " . translate($title),
           "--vertical-label=" . $label,
           "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
           "--no-legend",
@@ -332,7 +345,7 @@ sub rrd_get_graphics($$) {
         );
       } else {
         RRDs::graph($output,
-          "--title=" . $dev_id . ": " . $title,
+          "--title=" . $dev_id . ": " . translate($title),
           "--vertical-label=" . $label,
           "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
           "--no-legend",
@@ -422,7 +435,7 @@ sub rrd_html_actions($) {
 
       $response .= "  <td>\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $rrdRange . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:40px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . translate($rrdRange) . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:40px;\">\n";
       for my $key (sort keys %$querystring) {
         $response .= " <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };

@@ -103,6 +103,7 @@
 # 20191117/bie: implement hooks for authentication, cosmetics, reorg
 # 20191123/bie: cosmetics, minor bugfixes
 # 20191126/bie: add support for plain and json output
+# 20191214/bie: add translation support for "de"
 #
 # TODO:
 # - lock around file writes
@@ -118,6 +119,8 @@ use POSIX qw(strftime);
 use JSON;
 use Date::Parse;
 use Crypt::SaltedHash;
+use I18N::LangTags::Detect;
+use utf8;
 
 # global hooks
 our %hooks;
@@ -141,6 +144,7 @@ sub logging($);
 sub deltatime_string($);
 sub req_post();
 sub req_get();
+sub translate($);
 
 # global config (can be overwritten/extended by config file)
 our %config = (
@@ -151,6 +155,10 @@ our %config = (
   'debug'         => 0      # debug
 );
 
+# translations
+our %translations;
+my @languagesSupported = ( 'en', 'de' );
+my $language = "en"; # default
 
 # global data
 our %querystring;
@@ -169,6 +177,12 @@ my $reqm = $ENV{'REQUEST_METHOD'};
 ####################
 
 # default
+if (!defined $ENV{'SERVER_NAME'}) {
+  $ENV{'SERVER_NAME'} = "UNDEFINED";
+  response(500, "major problem found", "", "'SERVER_NAME' not defined in environment");
+  exit;
+};
+
 if (!defined $ENV{'DOCUMENT_ROOT'}) {
   response(500, "major problem found", "", "'DOCUMENT_ROOT' not defined in environment");
   exit;
@@ -261,6 +275,28 @@ my @info_array = ('timeNow', 'deltaLastChanged', 'deltaLastReceived', 'timeLastR
 # definitions
 my %dev_hash;
 
+# translations
+$translations{'timeNow'}->{'de'} = "Aktuelle Uhrzeit";
+$translations{'deltaLastChanged'}->{'de'} = "Zeit seit letzter Änderung";
+$translations{'deltaLastReceived'}->{'de'} = "Zeit seit letzter Übermittlung";
+$translations{'timeLastReceived'}->{'de'} = "Uhrzeit der letzten Übermittlung";
+$translations{'timeLastFilled'}->{'de'} = "Uhrzeit der letzten Füllung";
+$translations{'timeLastEmptied'}->{'de'} = "Uhrzeit der letzten Leerung";
+$translations{'EMPTY'}->{'de'} = "LEER";
+$translations{'EMPTIED'}->{'de'} = "AUSGELEERT";
+$translations{'FILLED'}->{'de'} = "GEFÜLLT";
+$translations{'FULL'}->{'de'} = "VOLL";
+$translations{'hosted on'}->{'de'} = "bereitgestellt durch";
+$translations{'Letterbox Sensor Status'}->{'de'} = "Briefkasten Sensor Status";
+$translations{'Reload'}->{'de'} = "Neu laden";
+$translations{'Autoreload'}->{'de'} = "Autom neu laden";
+$translations{'automatic refresh active every'}->{'de'} = "automatisches Auffrischen aktiv alle";
+$translations{'seconds'}->{'de'} = "Sekunden";
+$translations{'Graphics'}->{'de'} = "Graphik";
+$translations{'hrs'}->{'de'} = "Std";
+$translations{'mins'}->{'de'} = "Min";
+$translations{'days'}->{'de'} = "Tage";
+
 
 ####################
 ## init hook
@@ -275,6 +311,18 @@ for my $module (sort keys %hooks) {
 ###########
 ## START ##
 ###########
+
+my @languageUserWants = I18N::LangTags::Detect::detect();
+logging("accepted languages: " . join(" ", @languageUserWants)) if ($config{'debug'} > 0);
+my %languages = map { $_ => 1 } @languagesSupported;
+for my $l (@languageUserWants) {
+  logging("check language: " . $l) if ($config{'debug'} > 0);
+  if (defined($languages{$l})) {
+    $language = $l;
+    logging("selected language: " . $language) if ($config{'debug'} > 0);
+    last;
+  };
+};
 
 
 ## handle web request
@@ -815,11 +863,11 @@ sub logging($) {
 sub deltatime_string($) {
   my $delta = shift;
   if ($delta < 3600) {
-    return sprintf("%d mins", int($delta / 60));
+    return sprintf("%d " . translate("mins"), int($delta / 60));
   } elsif ($delta < 3600 * 24) {
-    return sprintf("%d hrs %d mins", int($delta / 3600), int($delta / 60) % 60);
+    return sprintf("%d " . translate("hrs") . " %d " . translate("mins"), int($delta / 3600), int($delta / 60) % 60);
   } else {
-    return sprintf("%d days %d hrs", int($delta / 3600 / 24), int($delta / 60 / 60) % 24);
+    return sprintf("%d " . translate("days") . " %d " . translate("hrs"), int($delta / 3600 / 24), int($delta / 60 / 60) % 24);
   };
 };
 
@@ -842,7 +890,7 @@ sub response($$;$$$$$) {
   $cgi_headers{'-cookie'} = $cookie if (defined $cookie);
   $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $ENV{'REQUEST_URI'} if (defined $refresh_delay);
   if (defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\|json)$/o) {
-    $cgi_headers{'-Type'} = "$1";
+    $cgi_headers{'-Type'} = $1 . "; charset=utf-8";
   };
 
   # Header
@@ -868,20 +916,21 @@ sub response($$;$$$$$) {
   } else {
     # directly called
     print "<!DOCTYPE html>\n<html>\n<head>\n";
-    print " <title>TTN Letterbox Sensor Status - " . $ENV{'SERVER_NAME'} . "</title>\n";
+    print " <title>TTN " . translate("Letterbox Sensor Status") . " - " . $ENV{'SERVER_NAME'} . "</title>\n";
     print "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
+    print "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
     print "$header";
     print "</head>\n<body>\n";
-    print "<font size=\"+1\">TTN Letterbox Sensor Status</font>\n";
+    print "<font size=\"+1\">TTN " . translate("Letterbox Sensor Status") . "</font>\n";
     print "<br />\n";
-    print "<font size=\"-1\">hosted on " . $ENV{'SERVER_NAME'} . "</font>\n";
+    print "<font size=\"-1\">" . translate("hosted on") . " " . $ENV{'SERVER_NAME'} . "</font>\n";
     print "<br />\n";
 
     print "$message";
 
     if (defined $refresh_delay && ! defined $quiet) {
       print "<br />\n";
-      print "<font size=\"-1\">redirect in " . $refresh_delay . " seconds</font>";
+      print "<font size=\"-1\">" . translate("redirect in") . " " . $refresh_delay . " " . translate("seconds") . "</font>";
     };
 
     print "\n</body>\n</html>\n";
@@ -910,7 +959,7 @@ sub letter($) {
   # print reload button
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Reload\" style=\"background-color:#DEB887;width:150px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Reload") . "\" style=\"background-color:#DEB887;width:150px;height:50px;\">\n";
   for my $key (sort keys %querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
   };
@@ -929,7 +978,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Autoreload\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";width:150px;height:50px;\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
@@ -976,7 +1025,7 @@ sub letter($) {
   if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
     $response .= "<br />\n";
   } elsif (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
-    $response .= "<font color=grey size=-2>automatic refresh active every " . $config{'autorefresh'} . " seconds</font>\n";
+    $response .= "<font color=grey size=-2>" . translate("automatic refresh active every") . " " . $config{'autorefresh'} . " " . translate("seconds") . "</font>\n";
     $response .= "<br />\n";
   } else {
     $response .= "<br />\n";
@@ -1039,7 +1088,7 @@ sub letter($) {
       # set bgcolor if defined
       $bg = " bgcolor=" . $bg_colors{$dev_hash{$dev_id}->{'box'}};
     };
-    $response .= "<td" . $bg . " align=\"center\"><font size=+3><b>" . uc($dev_hash{$dev_id}->{'box'}) . "</b></font></td>";
+    $response .= "<td" . $bg . " align=\"center\"><font size=+3><b>" . translate(uc($dev_hash{$dev_id}->{'box'})) . "</b></font></td>";
   };
   $response .= "</tr>\n";
 
@@ -1048,7 +1097,7 @@ sub letter($) {
     next if ((! defined $querystring{'details'} || $querystring{'details'} eq "off") && $info !~ /^(time|delta)/o);
 
     $response .= " <tr>";
-    $response .= "<td><font size=-1>" . $info . "</font></td>";
+    $response .= "<td><font size=-1>" . translate($info) . "</font></td>";
 
     for my $dev_id (sort keys %dev_hash) {
       # no bgcolor
@@ -1101,7 +1150,7 @@ sub letter($) {
     # print optional graphics
     for my $type (sort keys %types) {
       $response .= " <tr>";
-      $response .= "<td><font size=-1>Graphics:<br />" . $type . "</font></td>";
+      $response .= "<td><font size=-1>" . translate("Graphics") . ":<br />" . translate($type) . "</font></td>";
       for my $dev_id (sort keys %dev_hash) {
         $response .= "\n  <td align=\"center\">\n";
         if (defined $dev_hash{$dev_id}->{'graphics'}) {
@@ -1197,6 +1246,16 @@ sub letter_text($$) {
   };
 
   response(200, $response, undef);
+};
+
+
+## Translation function
+sub translate($) {
+  if (defined $translations{$_[0]}->{$language}) {
+    return $translations{$_[0]}->{$language};
+  } else {
+    return $_[0];
+  };
 };
 
 # vim: set noai ts=2 sw=2 et:

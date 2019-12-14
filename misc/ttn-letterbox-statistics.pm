@@ -26,6 +26,7 @@
 # 20191119/bie: cosmetic improvements on pictures
 # 20191120/bie: insert dev_id into image
 # 20191121/bie: minor bugfixes
+# 20191214/bie: add "de" translation
 
 use strict;
 use warnings;
@@ -34,10 +35,12 @@ use GD;
 use JSON;
 use Date::Parse;
 use MIME::Base64;
+use utf8;
 
 ## globals
 our %hooks;
 our %config;
+our %translations;
 
 
 ## prototyping
@@ -63,6 +66,11 @@ my @statistics = ("boxstatus", "receivedstatus");
 ## small charset for digits encoded in 15 bit
 my @statistics_digitFontPattern = (0x7b6f, 0x2492, 0x73e7, 0x79e7, 0x49ed, 0x79cf, 0x7bcf, 0x4927, 0x7bef, 0x79ef);
 
+
+## translations
+$translations{'Statistics'}->{'de'} = "Statistiken";
+$translations{'boxstatus'}->{'de'} = "Briefkasten-Status";
+$translations{'receivedstatus'}->{'de'} = "Empfangs-Status";
 
 ## statistics_sizes
 my %statistics_sizes = (
@@ -709,7 +717,7 @@ sub statistics_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Statistics\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Statistics") . "\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
   };

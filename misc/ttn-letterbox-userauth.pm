@@ -43,6 +43,7 @@
 # 20191117/bie: major rework
 # 20191118/bie: honor time token from cookie, store expiry in auth cookie
 # 20191119/bie: start implementing password change (still unfinished)
+# 20191214/bie: add transation "de"
 
 use strict;
 use warnings;
@@ -52,6 +53,7 @@ use Digest::SHA qw (sha512_base64 sha512);
 use Apache::Htpasswd;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt bcrypt_hash en_base64 de_base64);
 use Crypt::CBC;
+use utf8;
 
 ## globals
 our %hooks;
@@ -59,6 +61,7 @@ our %config;
 our %querystring;
 our $conffile;
 our $datadir;
+our %translations;
 
 # local data
 my $session_token_split = 40;
@@ -81,7 +84,7 @@ sub userauth_verify($);
 sub userauth_show();
 sub userauth_check_acl($);
 
-### hooks
+## hooks
 $hooks{'userauth'}->{'init'} = \&userauth_init;
 $hooks{'userauth'}->{'auth_verify_token'} = \&userauth_verify_token;
 $hooks{'userauth'}->{'auth_verify'} = \&userauth_verify;
@@ -89,6 +92,22 @@ $hooks{'userauth'}->{'auth_check'} = \&userauth_check;
 $hooks{'userauth'}->{'auth_generate'} = \&userauth_generate;
 $hooks{'userauth'}->{'auth_show'} = \&userauth_show;
 $hooks{'userauth'}->{'auth_check_acl'} = \&userauth_check_acl;
+
+## translations
+$translations{'authenticated as user'}->{'de'} = "authentifiziert als Benutzer";
+$translations{'permitted for devices'}->{'de'} = "erlaubt für Geräte";
+$translations{'authentication cookie expires in days'}->{'de'} = "Authentifizierungs-Cookie noch gültig für Tage";
+$translations{'Logout'}->{'de'} = "Abmelden";
+$translations{'Login'}->{'de'} = "Anmelden";
+$translations{'Authentication required'}->{'de'} = "Authentifizierung notwendig";
+$translations{'Username'}->{'de'} = "Benutzername";
+$translations{'Password'}->{'de'} = "Passwort";
+$translations{'Authentication problem'}->{'de'} = "Authentifizierungs-Problem";
+$translations{'Login successful'}->{'de'} = "Anmeldung erfolgreich";
+$translations{'Logout successful'}->{'de'} = "Abmeldung erfolgreich";
+$translations{'Logout already done'}->{'de'} = "Abmeldung bereits erfolgt";
+$translations{'username/password not accepted'}->{'de'} = "Benutzername/Passwort nicht akzeptiert";
+$translations{'will be redirected back'}->{'de'} = "wird nun zurückgeleitet";
 
 
 ##############
@@ -167,17 +186,17 @@ sub userauth_generate() {
 
   if (! defined $user_data{'username'} || $user_data{'username'} eq "") {
     my $response;
-    $response .= "   <b>Authentication required</b>\n";
+    $response .= "   <b>" . translate("Authentication required") . "</b>\n";
     $response .= "   <form method=\"post\">\n";
     $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>Username:</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Username") . ":</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>Password:</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Password"). ":</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "     <tr>\n";
-    $response .= "      <td></td><td><input type=\"submit\" value=\"Login\" style=\"background-color:#00A000;width:100px;height:50px;\"></td>\n";
+    $response .= "      <td></td><td><input type=\"submit\" value=\"" . translate("Login") . "\" style=\"background-color:#00A000;width:100px;height:50px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "    </table>\n";
     $response .= "    <input type=\"text\" name=\"session_token_form\" value=\"" . $session_token_form . "\" hidden>\n";
@@ -235,10 +254,10 @@ sub userauth_verify($) {
   if ($post_data{'action'} eq "logout") {
     if (defined $cookie_data{'enc'}) {
       # clear auth token
-      response(200, "<font color=\"orange\">Logout successful (will be redirected back)</font>", "", "", $cookie, 1);
+      response(200, "<font color=\"orange\">" . translate("Logout successful") . " (" . translate("will be redirected back") . ")</font>", "", "", $cookie, 1);
     } else {
       # auth token already cleared
-      response(200, "<font color=\"orange\">Logout already done (will be redirected back)</font>", "", "", $cookie, 1);
+      response(200, "<font color=\"orange\">" . translate("Logout already done") . " (" . translate("will be redirected back") . ")</font>", "", "", $cookie, 1);
     };
     exit 0;
   };
@@ -267,68 +286,68 @@ sub userauth_verify($) {
   my $uuid = $ug->from_string($config{'uuid'});
 
   if ($cookie_found == 0) {
-    response(401, "<font color=\"red\">Authentication problem (login session expired or cookies disabled, will be redirected soon)</font>", "", "session expired (no cookie)", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session expired or cookies disabled, will be redirected soon)</font>", "", "session expired (no cookie)", $cookie, 10);
     exit 0;
   };
 
   if (! defined $cookie_data{'session_token_cookie'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'session_token_cookie'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   if (! defined $cookie_data{'time'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data missing: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: time", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'time'} !~ /^[0-9]{10}$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
     exit 0;
   };
 
   # check post data
   if (! defined $post_data{'session_token_form'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data missing: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'session_token_form'} !~ /^[0-9A-Za-z=%\/]+$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'rand'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data missing: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: rand", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'rand'} !~ /^0\.[0-9]+$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data length/format mismatch: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: rand", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'username'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data missing: username");
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: username");
     exit 0;
   };
 
   if ($post_data{'username'} !~ /^[0-9A-Za-z]+$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data length/format mismatch: username", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: username", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'password'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data missing: password", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: password", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'password'} !~ /^.+$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "form data length/format mismatch: password");
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: password");
     exit 0;
   };
 
@@ -341,31 +360,31 @@ sub userauth_verify($) {
 
   if ($session_token ne $session_token_reference) {
     $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1);
-    response(401, "<font color=\"red\">Authentication problem (login session invalid, will be redirected soon)</font>", "", "session invalid", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session invalid, will be redirected soon)</font>", "", "session invalid", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'time'} + $session_token_lifetime < time) {
     $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1);
-    response(401, "<font color=\"red\">Authentication problem (login session expired, will be redirected soon)</font>", "", "session expired", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session expired, will be redirected soon)</font>", "", "session expired", $cookie, 10);
     exit 0;
   };
 
   if (! -e $userfile) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "no htpasswd user file found: " . $userfile);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "no htpasswd user file found: " . $userfile);
     exit 0;
   };
 
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
   if (! defined $htpasswd) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
     exit 0;
   };
 
   my $password_hash = $htpasswd->fetchPass($post_data{'username'});
   if (! defined $password_hash || $password_hash eq "0") {
-    response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "user not found in file: " . $userfile . " (" . $post_data{'username'} . ")", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("" . translate("Authentication problem") . "") . " (" . translate("username/password not accepted") . ")</font>", "", "user not found in file: " . $userfile . " (" . $post_data{'username'} . ")", $cookie, 10);
     exit 0;
   };
 
@@ -375,7 +394,7 @@ sub userauth_verify($) {
     # bcrypt
     my $hash = en_base64(bcrypt_hash({ key_nul => 1, cost => $2, salt => de_base64($3)}, $post_data{'password'}));
     if ($hash ne $4) {
-      response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
+      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
       logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'} . " hash=" . $hash)) if defined $config{'userauth'}->{'debug'};;
       exit 0;
     };
@@ -383,7 +402,7 @@ sub userauth_verify($) {
     # try MD5/SHA1 via module
     my $password_result = $htpasswd->htCheckPassword($post_data{'username'}, $post_data{'password'});
     if (! defined $password_result || $password_result eq "0") {
-      response(401, "<font color=\"red\">Authentication problem (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
+      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
       exit 0;
     }; 
   };
@@ -403,7 +422,7 @@ sub userauth_verify($) {
   $user_data{'userauth'} = $post_data{'username'};
   logging("user successfully authenticated: " . $post_data{'username'});
 
-  response(200, "<font color=\"green\">Login successful (will be redirected back)</font>", "", "", $cookie, 1);
+  response(200, "<font color=\"green\">" . translate("Login successful") . " (" . translate("will be redirected back") . ")</font>", "", "", $cookie, 1);
   exit 0;
 };
 
@@ -418,20 +437,20 @@ sub userauth_verify_token() {
 
   my $ver = $cookie_data{'ver'};
   if (! defined $cookie_data{'ver'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie is missing: ver", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie is missing: ver", $cookie, 10);
     exit 0;
   };
   if ($cookie_data{'ver'} ne "1") {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data has unsupported value: ver", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data has unsupported value: ver", $cookie, 10);
     exit 0;
   };
 
   if (! defined $cookie_data{'enc'}) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie is missing: enc", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie is missing: enc", $cookie, 10);
     exit 0;
   };
   if ($cookie_data{'enc'} !~ /^[0-9A-Za-z\+\/=]+$/o) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "cookie data has unsupported value: enc", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data has unsupported value: enc", $cookie, 10);
     exit 0;
   };
 
@@ -447,27 +466,27 @@ sub userauth_verify_token() {
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
   if (! defined $htpasswd) {
-    response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
     exit 0;
   };
 
   for my $token ("username", "password_hash", "time", "expiry") {
     if (! defined $user_data{$token}) {
-      response(401, "<font color=\"red\">Authentication problem (investigate error log)</font>", "", "decrypted cookie is missing: " . $token);
+      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "decrypted cookie is missing: " . $token);
       exit 0;
     };
   };
 
   my $password_hash = $htpasswd->fetchPass($user_data{'username'});
   if (! defined $password_hash || $password_hash eq "0") {
-    response(401, "<font color=\"red\">Authentication problem (username/password not accepted from cookie)</font>", "", "user not found in file: " . $userfile . " (" . $user_data{'username'} . ")", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted from cookie)</font>", "", "user not found in file: " . $userfile . " (" . $user_data{'username'} . ")", $cookie, 10);
     exit 0;
   };
 
   logging("from-htpassd-password_hash=" . $password_hash . " from cookie-password_hash=" . $user_data{'password_hash'}) if defined $config{'userauth'}->{'debug'};
 
   if ($password_hash ne $user_data{'password_hash'}) {
-    response(401, "<font color=\"red\">Authentication problem (username/password not accepted from cookie)</font>", "", "authentication token invalid", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted from cookie)</font>", "", "authentication token invalid", $cookie, 10);
     exit 0;
   };
 
@@ -493,11 +512,11 @@ sub userauth_show() {
 
   $response .= "<table border=\"0\" cellspacing=\"1\" cellpadding=\"1\">\n";
   $response .= " <tr>\n";
-  $response .= "  <td>authenticated as user: " . $user_data{'username'} . "</td>\n";
+  $response .= "  <td>" . translate("authenticated as user") . ": " . $user_data{'username'} . "</td>\n";
 
   $response .= "  <td rowspan=3>\n";
   $response .= "   <form method=\"post\">\n";
-  $response .= "     <input id=\"logout\" type=\"submit\" value=\"Logout\" style=\"background-color:#FFA0E0;\">\n";
+  $response .= "     <input id=\"logout\" type=\"submit\" value=\"" . translate("Logout") . "\" style=\"background-color:#FFA0E0;\">\n";
   $response .= "    <input type=\"text\" name=\"action\" value=\"logout\" hidden>\n";
   $response .= "   </form>\n";
   $response .= "  </td>";
@@ -517,7 +536,7 @@ sub userauth_show() {
 
   $response .= " </tr>\n";
   $response .= " <tr>\n";
-  $response .= "  <td>permitted for devices: ";
+  $response .= "  <td>" . translate("permitted for devices") . ": ";
   if ((defined $user_data{'dev_id_acl'}->{'*'}) && ($user_data{'dev_id_acl'}->{'*'} eq "1")) {
     # wildcard
     $response .= "ALL";
@@ -531,7 +550,7 @@ sub userauth_show() {
   $response .= " <tr>\n";
   $response .= "  <td>";
   if (defined $user_data{'expiry'}) {
-    $response .= "authentication cookie expires in days: " . int(($user_data{'expiry'} - time) / 86400);
+    $response .= translate("authentication cookie expires in days") . ": " . int(($user_data{'expiry'} - time) / 86400);
   };
   $response .= "</td>\n";
   $response .= " </tr>\n";
