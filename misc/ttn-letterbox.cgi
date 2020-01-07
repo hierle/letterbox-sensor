@@ -10,7 +10,7 @@
 # (P) & (C) 2019-2019 Alexander Hierle <alex@hierle.com>
 #
 # Major extensions:
-# (P) & (C) 2019-2019 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2020 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -104,6 +104,7 @@
 # 20191123/bie: cosmetics, minor bugfixes
 # 20191126/bie: add support for plain and json output
 # 20191214/bie: add translation support for "de"
+# 20200107/bie: use only major language token for translation support
 #
 # TODO:
 # - lock around file writes
@@ -317,6 +318,7 @@ my @languageUserWants = I18N::LangTags::Detect::detect();
 logging("accepted languages: " . join(" ", @languageUserWants)) if ($config{'debug'} > 0);
 my %languages = map { $_ => 1 } @languagesSupported;
 for my $l (@languageUserWants) {
+  $l =~ s/-.*//og; # cut everything behind "-"
   logging("check language: " . $l) if ($config{'debug'} > 0);
   if (defined($languages{$l})) {
     $language = $l;
