@@ -23,6 +23,7 @@
 # 20191115/bie: remove border of RRD to get it smaller
 # 20191120/bie: insert dev_id into title
 # 20191214/bie: add "de" translation
+# 20200213/bie: improve layout for Mobile browers, fix RRD database definition to cover 1y instead of 12d
 
 use strict;
 use warnings;
@@ -37,7 +38,7 @@ use utf8;
 our %hooks;
 our %config;
 our %translations;
-
+our $mobile;
 
 ## prototyping
 sub rrd_init();
@@ -130,6 +131,7 @@ sub rrd_create($) {
 
 	logging("Create  new RRD: " . $file) if defined $config{'rrd'}->{'debug'};
 
+  # 86400 s * 365 d / 300 s = 105120 measurements
   RRDs::create($file,
     "--step=300",
     "--start=1571200000",
@@ -141,12 +143,15 @@ sub rrd_create($) {
     "RRA:AVERAGE:0.5:1:4800",
     "RRA:MIN:0.5:1:4800",
     "RRA:MAX:0.5:1:4800",
-    "RRA:AVERAGE:0.5:30m:1M",
-    "RRA:MIN:0.5:30m:1M",
-    "RRA:MAX:0.5:30m:1M",
-    "RRA:AVERAGE:0.5:8h:1y",
-    "RRA:MIN:0.5:8h:1y",
-    "RRA:MAX:0.5:8h:1y"
+    "RRA:AVERAGE:0.5:10:24000",
+    "RRA:MIN:0.5:5:24000",
+    "RRA:MAX:0.5:5:24000",
+    "RRA:AVERAGE:0.5:10:48000",
+    "RRA:MIN:0.5:10:48000",
+    "RRA:MAX:0.5:10:48000",
+    "RRA:AVERAGE:0.5:1000:480000",
+    "RRA:MIN:0.5:1000:480000",
+    "RRA:MAX:0.5:1000:480000"
   );
 
   my $ERR=RRDs::error;
@@ -319,11 +324,14 @@ sub rrd_get_graphics($$) {
       my $title = $rrd_range{$rrdRange}->{'label'};
       my $label = $type;
 
-      if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
+      if ($mobile == 1) {
         $width = 140;
         $height = 50;
         $xgrid = $rrd_range{$rrdRange}->{'xgrid_mobile'};
       };
+
+      my $font_title = "10:Courier";
+      $font_title = "8:Helvetica" if ($mobile == 1);
 
       if ($type eq "sensor") {
         RRDs::graph($output,
@@ -338,6 +346,7 @@ sub rrd_get_graphics($$) {
           "--x-grid=" . $xgrid,
           "--border=0",
           "--font-render-mode=mono",
+          "--font=TITLE:" . $font_title,
           "--logarithmic",
           "--units=si",
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
@@ -356,6 +365,7 @@ sub rrd_get_graphics($$) {
           "--x-grid=" . $xgrid,
           "--border=0",
           "--font-render-mode=mono",
+          "--font=TITLE:" . $font_title,
           "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
           "LINE1:" . $type . $color . ":" . $type
         );
@@ -386,6 +396,7 @@ sub rrd_get_graphics($$) {
 ## HTML actions
 sub rrd_html_actions($) {
   my $querystring_hp = $_[0];
+  my $button_size;
 
   # default
   if (! defined $querystring_hp->{'rrdRange'} || $querystring_hp->{'rrdRange'} !~ /^(day|week|month|year)$/o) {
@@ -413,7 +424,9 @@ sub rrd_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
+  $button_size = "width:100px;height:40px;";
+  $button_size = "width:50px;height:40px;" if ($mobile == 1);
+  $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
   };
