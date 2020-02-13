@@ -27,6 +27,7 @@
 # 20191120/bie: insert dev_id into image
 # 20191121/bie: minor bugfixes
 # 20191214/bie: add "de" translation
+# 20200213/bie: improve layout for Mobile browers
 
 use strict;
 use warnings;
@@ -41,6 +42,7 @@ use utf8;
 our %hooks;
 our %config;
 our %translations;
+our $mobile;
 
 
 ## prototyping
@@ -616,7 +618,6 @@ sub statistics_get_graphics($$) {
   my $dev_id = $_[0];
 
   my %html;
-  my $mobile = 0;
 
   logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'statistics'}->{'debug'};
 
@@ -633,11 +634,10 @@ sub statistics_get_graphics($$) {
       my $xscale = $statistics_sizes{$type}->{'xscale'};
       my $yscale = $statistics_sizes{$type}->{'yscale'};
 
-      if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
+      if ($mobile == 1) {
         # scale down on mobile devices
         $xscale -= 1;
         $yscale -= 1;
-        $mobile = 1;
       };
 
       my $width = $image->width * $xscale;
@@ -694,6 +694,7 @@ sub statistics_get_graphics($$) {
 ## HTML actions
 sub statistics_html_actions($) {
   my $querystring_hp = $_[0];
+  my $button_size;
 
   # default
   if (! defined $querystring_hp->{'statistics'} || $querystring_hp->{'statistics'} !~ /^(on|off)$/o) {
@@ -716,8 +717,11 @@ sub statistics_html_actions($) {
     $toggle_color = "#00E000";
   };
 
+  $button_size = "width:100px;height:40px;";
+  $button_size = "width:70px;height:40px;" if ($mobile == 1);
+
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Statistics") . "\" style=\"background-color:" . $toggle_color . ";width:100px;height:40px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Statistics") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
   };
