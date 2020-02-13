@@ -105,6 +105,7 @@
 # 20191126/bie: add support for plain and json output
 # 20191214/bie: add translation support for "de"
 # 20200107/bie: use only major language token for translation support
+# 20200213/bie: improve layout for Mobile browers
 #
 # TODO:
 # - lock around file writes
@@ -165,6 +166,7 @@ my $language = "en"; # default
 our %querystring;
 our $datadir;
 our $conffile;
+our $mobile = 0;
 
 # set time strings
 my $nowstr = strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(time);
@@ -325,6 +327,12 @@ for my $l (@languageUserWants) {
     logging("selected language: " . $language) if ($config{'debug'} > 0);
     last;
   };
+};
+
+
+## detect mobile browers
+if (defined $ENV{'HTTP_USER_AGENT'} && $ENV{'HTTP_USER_AGENT'} =~ /Mobile/) {
+  $mobile = 1;
 };
 
 
@@ -955,6 +963,8 @@ sub letter($) {
   my $querystring_copy;
   my $toggle_color;
 
+  my $button_size;
+
   ## button row #1
   $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
   $response .= " <tr>\n";
@@ -962,7 +972,9 @@ sub letter($) {
   # print reload button
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Reload") . "\" style=\"background-color:#DEB887;width:150px;height:50px;\">\n";
+  $button_size = "width:150px;height:50px;";
+  $button_size = "width:100px;height:50px;" if ($mobile == 1);
+  $response .= "    <input type=\"submit\" value=\"" . translate("Reload") . "\" style=\"background-color:#DEB887;" . $button_size . "\">\n";
   for my $key (sort keys %querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
   };
