@@ -106,6 +106,7 @@
 # 20191214/bie: add translation support for "de"
 # 20200107/bie: use only major language token for translation support
 # 20200213/bie: improve layout for Mobile browers
+# 20200828/bie: fix issues on EL8 and add various META HTTP-EQUIV to avoid local brower caching
 #
 # TODO:
 # - lock around file writes
@@ -123,6 +124,7 @@ use Date::Parse;
 use Crypt::SaltedHash;
 use I18N::LangTags::Detect;
 use utf8;
+push @INC, ".";
 
 # global hooks
 our %hooks;
@@ -928,8 +930,11 @@ sub response($$;$$$$$) {
     # directly called
     print "<!DOCTYPE html>\n<html>\n<head>\n";
     print " <title>TTN " . translate("Letterbox Sensor Status") . " - " . $ENV{'SERVER_NAME'} . "</title>\n";
-    print "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
-    print "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+    print " <META NAME=\"viewport\" CONTENT=\"width=device-width, initial-scale=1\">\n";
+    print " <META HTTP-EQUIV=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+    print " <META HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\">\n";
+    print " <META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">\n";
+    print " <META HTTP-EQUIV=\"EXPIRES\" CONTENT=\"0\">\n";
     print "$header";
     print "</head>\n<body>\n";
     print "<font size=\"+1\">TTN " . translate("Letterbox Sensor Status") . "</font>\n";
@@ -1184,7 +1189,7 @@ sub letter($) {
   # autoreload header
   my $header;
   if (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
-    $header = ' <meta HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
+    $header = ' <META HTTP-EQUIV="refresh" CONTENT="' . $config{'autorefresh'} . '">' . "\n";
   };
 
   response(200, $response, $header);
@@ -1233,9 +1238,9 @@ sub letter_text($$) {
 
     for my $dev_id (sort keys %dev_hash) {
       push @device_info, $dev_hash{$dev_id};
-      for my $key (sort keys $dev_hash{$dev_id}) {
+      for my $key (sort keys %{$dev_hash{$dev_id}}) {
         if (ref($dev_hash{$dev_id}->{$key}) eq 'HASH') {
-          for my $subkey (sort keys $dev_hash{$dev_id}->{$key}) {
+          for my $subkey (sort keys %{$dev_hash{$dev_id}->{$key}}) {
             push @response_text, "device." . $dev_id . "." . $key . "." . $subkey . "=\"" . $dev_hash{$dev_id}->{$key}->{$subkey} . "\"";
           };
         } else {
