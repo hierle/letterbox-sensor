@@ -107,6 +107,7 @@
 # 20200107/bie: use only major language token for translation support
 # 20200213/bie: improve layout for Mobile browers
 # 20200828/bie: fix issues on EL8 and add various META HTTP-EQUIV to avoid local brower caching
+# 20201109/bie: fix german translation
 #
 # TODO:
 # - lock around file writes
@@ -298,7 +299,7 @@ $translations{'Reload'}->{'de'} = "Neu laden";
 $translations{'Autoreload'}->{'de'} = "Autom neu laden";
 $translations{'automatic refresh active every'}->{'de'} = "automatisches Auffrischen aktiv alle";
 $translations{'seconds'}->{'de'} = "Sekunden";
-$translations{'Graphics'}->{'de'} = "Graphik";
+$translations{'Graphics'}->{'de'} = "Grafik";
 $translations{'hrs'}->{'de'} = "Std";
 $translations{'mins'}->{'de'} = "Min";
 $translations{'days'}->{'de'} = "Tage";
