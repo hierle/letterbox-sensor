@@ -2,7 +2,7 @@
 #
 # Letterbox simulator to test server application
 #
-# (P) & (C) 2019-2021 Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
