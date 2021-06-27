@@ -13,6 +13,7 @@
 #
 # Required system features
 #   - "signal-cli" accessable via D-Bus interface, see https://ct.de/ywjz
+#     successfully tested with: https://github.com/AsamK/signal-cli/releases/tag/v0.7.4 on EL8
 #
 # Required configuration:
 #   - enable sending messages (otherwise dry-run)
