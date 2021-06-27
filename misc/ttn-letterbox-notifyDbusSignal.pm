@@ -161,7 +161,7 @@ sub notifyDbusSignal_store_data($$$) {
 
       my $message = translate("boxstatus") . ": " . $sensor . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
 
-      logging("notifyDbusSignal/store_data: send notification: $dev_id/$status/$receiver");
+      logging("notifyDbusSignal/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyDbusSignal.debug'};
 
       # action
       my $command = 'dbus-send --system --type=method_call --print-reply --dest=' . $config{'notifyDbusSignal.dest'} . ' /org/asamk/Signal/' . $config{'notifyDbusSignal.sender'} . ' org.asamk.Signal.sendMessage string:"' . $message . '" array:string: string:' . $phonenumber;
@@ -174,6 +174,15 @@ sub notifyDbusSignal_store_data($$$) {
         my $result = `$command 2>&1`;
         my $rc = $?;
         logging("notifyDbusSignal/store_data: result of called system command: $rc") if defined $config{'notifyDbusSignal.debug'};
+
+        if ($rc == 0) {
+          logging("notifyDbusSignal: notification SUCCESS to: $dev_id/$status/$receiver");
+        } else {
+          chomp($result);
+          $result =~ s/\n/ /og;
+          $result =~ s/\r/ /og;
+          logging("notifyDbusSignal: notification PROBLEM to: $dev_id/$status/$receiver (" . $result . ")");
+        };
       };
     };
   };
