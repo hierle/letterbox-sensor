@@ -10,7 +10,7 @@
 # (P) & (C) 2019-2019 Alexander Hierle <alex@hierle.com>
 #
 # Major extensions:
-# (P) & (C) 2019-2020 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -163,7 +163,7 @@ our %config = (
 # translations
 our %translations;
 my @languagesSupported = ( 'en', 'de' );
-my $language = "en"; # default
+our $language = "en"; # default
 
 # global data
 our %querystring;
