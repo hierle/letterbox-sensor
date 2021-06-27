@@ -117,6 +117,7 @@
 # 20200213/bie: improve layout for Mobile browers
 # 20200828/bie: fix issues on EL8 and add various META HTTP-EQUIV to avoid local brower caching
 # 20201109/bie: fix german translation
+# 20210627/bie: add module and extended support for ttn-letterbox-notifyDbusSignal.pm
 #
 # TODO:
 # - lock around file writes
