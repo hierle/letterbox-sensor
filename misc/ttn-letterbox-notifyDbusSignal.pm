@@ -176,12 +176,12 @@ sub notifyDbusSignal_store_data($$$) {
         logging("notifyDbusSignal/store_data: result of called system command: $rc") if defined $config{'notifyDbusSignal.debug'};
 
         if ($rc == 0) {
-          logging("notifyDbusSignal: notification SUCCESS to: $dev_id/$status/$receiver");
+          logging("notifyDbusSignal: notification SUCCESS: $dev_id/$status/$receiver");
         } else {
           chomp($result);
           $result =~ s/\n/ /og;
           $result =~ s/\r/ /og;
-          logging("notifyDbusSignal: notification PROBLEM to: $dev_id/$status/$receiver (" . $result . ")");
+          logging("notifyDbusSignal: notification PROBLEM: $dev_id/$status/$receiver (" . $result . ")");
         };
       };
     };
