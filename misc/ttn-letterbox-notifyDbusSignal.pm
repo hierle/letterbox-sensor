@@ -159,7 +159,14 @@ sub notifyDbusSignal_store_data($$$) {
         $language =~ s/^;//o; # remove separator
       };
 
-      my $message = translate("boxstatus") . ": " . $sensor . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
+      my $icon = "";
+      if ($status =~ /^(filled)$/o) {
+        $icon = "📬 ";
+      } elsif ($status =~ /^(emptied)$/o) {
+        $icon = "📫 ";
+      };
+
+      my $message = translate("boxstatus") . ": " . $icon . $sensor . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
 
       logging("notifyDbusSignal/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyDbusSignal.debug'};
 
