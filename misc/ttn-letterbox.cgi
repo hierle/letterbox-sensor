@@ -85,6 +85,15 @@
 # Contents: <TIMESTAMP>
 # Purpose: time of last detected (received/autodetected) emptied status
 #
+# File: ttn.notify.list
+# Contents: <dev_id>:<comma_separated_notification_token>
+# Purpose: list of notification recipients defined with method
+# Supported:
+#       signal=<phone_number>[;<lang>] (by ttn-letterbox-notifyDbusSignal.pm)
+# Planned
+#       email=<recipient>[;<lang>]
+
+#
 # Changelog:
 # 20191007/hie: initial
 # 20191029/bie: major extension, improve output, add support for additional sensors, add some error catching
@@ -130,8 +139,19 @@ push @INC, ".";
 # global hooks
 our %hooks;
 
+# features
+our %features;
+
+# notify
+our @notify_list;
+
 # optional modules
-my @module_list = ("ttn-letterbox-statistics.pm", "ttn-letterbox-rrd.pm", "ttn-letterbox-userauth.pm");
+my @module_list;
+
+push @module_list, "ttn-letterbox-userauth.pm";
+push @module_list, "ttn-letterbox-statistics.pm";
+push @module_list, "ttn-letterbox-rrd.pm";
+push @module_list, "ttn-letterbox-notifyDbusSignal.pm";
 
 for my $module (@module_list) {
   if (-e $module && -r $module) {
@@ -265,6 +285,9 @@ my %bg_colors = (
   'filled'  => 'yellow',
   'emptied' => 'pink',
 );
+
+# notification file
+my $notifyfile =  "$datadir/ttn.notify.list";
 
 # list of seen devices
 my $devfile =  "$datadir/ttn.devices.list";
@@ -661,6 +684,34 @@ sub req_post() {
   print LOGF $nowstr . " ";
   print LOGF $lines[0] . "\n";
   close LOGF;
+
+  # preparation for features
+  if (defined $features{'notify'}) {
+    # read notification list
+    if (! -e $notifyfile) {
+      logging("notification feature supported, but UNSUABLE, config file is not existing: " . $notifyfile);
+      # file is not existing, not that critical
+    } else {
+      if (open NOTIFYF, '<', $notifyfile) {
+        while (my $line = <NOTIFYF>) {
+          chomp($line);
+          if ($line !~ /^([^:]+):([^:]+)$/o) {
+            next;
+          };
+          if (defined $1 && $1 eq $dev_id) {
+            # dev_id found
+            if (defined $2) {
+              #logging("notification feature supported and ENABLED for $dev_id: $2");
+              @notify_list = split(/,/, $2);
+            };
+          };
+        };
+        close NOTIFYF;
+      } else {
+        logging("notification feature supported but UNUSABLE, config file is existing, but can't be read: " . $notifyfile);
+      };
+    };
+  };
 
   ####################
   for my $module (sort keys %hooks) {
