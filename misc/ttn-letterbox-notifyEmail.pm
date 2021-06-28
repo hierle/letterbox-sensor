@@ -84,12 +84,12 @@ sub notifyEmail_init() {
   logging("notifyEmail/init: called") if defined $config{'notifyEmail.debug'};
 
   if (! defined $config{'notifyEmail.enable'}) {
-    logging("notifyEmail/init/NOTICE: missing entry in config file: notifyEmail.enable -> notifications not enabled");
+    logging("notifyEmail/init/NOTICE: missing entry in config file: notifyEmail.enable -> notifications not enabled") if defined $config{'notifyEmail.debug'};
     $config{'notifyEmail.enable'} = "0";
   };
 
   if ($config{'notifyEmail.enable'} ne "1") {
-    logging("notifyEmail/init/NOTICE: notifyEmail.enable is not '1' -> notifications not enabled");
+    logging("notifyEmail/init/NOTICE: notifyEmail.enable is not '1' -> notifications not enabled") if defined $config{'notifyEmail.debug'};
   } else {
     $notifyEmail_enable = 1;
   };

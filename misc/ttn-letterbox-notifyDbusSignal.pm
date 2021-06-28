@@ -82,12 +82,12 @@ sub notifyDbusSignal_init() {
   logging("notifyDbusSignal/init: called") if defined $config{'notifyDbusSignal.debug'};
 
   if (! defined $config{'notifyDbusSignal.enable'}) {
-    logging("notifyDbusSignal/init/NOTICE: missing entry in config file: notifyDbusSignal.enable -> notifications not enabled");
+    logging("notifyDbusSignal/init/NOTICE: missing entry in config file: notifyDbusSignal.enable -> notifications not enabled") if defined $config{'notifyDbusSignal.debug'};
     $config{'notifyDbusSignal.enable'} = "0";
   };
 
   if ($config{'notifyDbusSignal.enable'} ne "1") {
-    logging("notifyDbusSignal/init/NOTICE: notifyDbusSignal.enable is not '1' -> notifications not enabled");
+    logging("notifyDbusSignal/init/NOTICE: notifyDbusSignal.enable is not '1' -> notifications not enabled") if defined $config{'notifyDbusSignal.debug'};
   } else {
     $notifyDbusSignal_enable = 1;
   };
