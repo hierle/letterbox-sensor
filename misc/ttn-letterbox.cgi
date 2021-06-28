@@ -90,8 +90,7 @@
 # Purpose: list of notification recipients defined with method
 # Supported:
 #       signal=<phone_number>[;<lang>] (by ttn-letterbox-notifyDbusSignal.pm)
-# Planned
-#       email=<recipient>[;<lang>]
+#       email=<recipient>[;<lang>] (by ttn-letterbox-notifyEmail.pm)
 
 #
 # Changelog:
@@ -118,6 +117,7 @@
 # 20200828/bie: fix issues on EL8 and add various META HTTP-EQUIV to avoid local brower caching
 # 20201109/bie: fix german translation
 # 20210627/bie: add module and extended support for ttn-letterbox-notifyDbusSignal.pm
+# 20210628/bie: add module and extended support for ttn-letterbox-notifyEmail.pm
 #
 # TODO:
 # - lock around file writes
@@ -153,6 +153,7 @@ push @module_list, "ttn-letterbox-userauth.pm";
 push @module_list, "ttn-letterbox-statistics.pm";
 push @module_list, "ttn-letterbox-rrd.pm";
 push @module_list, "ttn-letterbox-notifyDbusSignal.pm";
+push @module_list, "ttn-letterbox-notifyEmail.pm";
 
 for my $module (@module_list) {
   if (-e $module && -r $module) {
