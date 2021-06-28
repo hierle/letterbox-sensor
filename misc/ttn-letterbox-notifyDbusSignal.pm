@@ -75,6 +75,10 @@ sub notifyDbusSignal_init() {
     $config{'notifyDbusSignal.debug'} = 1;
   };
 
+  if (defined $config{'notifyDbusSignal.debug'} && $config{'notifyDbusSignal.debug'} eq "0") {
+    undef $config{'notifyDbusSignal.debug'};
+  };
+
   logging("notifyDbusSignal/init: called") if defined $config{'notifyDbusSignal.debug'};
 
   if (! defined $config{'notifyDbusSignal.enable'}) {
