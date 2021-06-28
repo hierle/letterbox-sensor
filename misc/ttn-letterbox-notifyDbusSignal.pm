@@ -149,7 +149,7 @@ sub notifyDbusSignal_store_data($$$) {
       $receiver =~ s/^signal=//o; # remove prefix
       if ($receiver !~ /^(\+[0-9]+)(;[a-z]{2})?$/o) {
         logging("notifyDbusSignal/store_data: notification receiver not a valid phone number + optional language token (SKIP): " . $receiver);
-        continue;
+        next;
       };
 
       my $phonenumber = $1;
