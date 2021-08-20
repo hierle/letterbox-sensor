@@ -27,6 +27,7 @@
 # Honors entries starting with "email=" from "@notify_list" provided by main CGI
 #
 # 20210628/bie: initial version (based on ttn-letterbox-notifyEmail.pm)
+# 20210820/bie: log empty recipent list only on debug level
 #
 # TODO: implement faster mail delivery methods like "mailx"
 
@@ -129,7 +130,7 @@ sub notifyEmail_store_data($$$) {
     logging("notifyEmail/store_data: notification list filtered: " . join(' ', @notify_list_filtered)) if defined $config{'notifyEmail.debug'};
 
     if (scalar(@notify_list_filtered) == 0) {
-      logging("notifyEmail/store_data: no related entry found in notification list");
+      logging("notifyEmail/store_data: no related entry found in notification list") if defined $config{'notifyEmail.debug'};
       return 0;
     };
 
