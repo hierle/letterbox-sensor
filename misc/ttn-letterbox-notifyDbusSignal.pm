@@ -30,6 +30,7 @@
 #
 # 20210626/bie: initial version
 # 20210627/bie: major update
+# 20211001/bie: adjust German translation
 
 use strict;
 use warnings;
@@ -55,7 +56,7 @@ $hooks{'notifyDbusSignal'}->{'store_data'} = \&notifyDbusSignal_store_data;
 
 ## translations
 $translations{'boxstatus'}->{'de'} = "Briefkasten-Status";
-$translations{'emptied'}->{'de'} = "AUSGELEERT";
+$translations{'emptied'}->{'de'} = "GELEERT";
 $translations{'filled'}->{'de'} = "GEFÜLLT";
 $translations{'at'}->{'de'} = "am";
 

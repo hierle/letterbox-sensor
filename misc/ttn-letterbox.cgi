@@ -118,6 +118,7 @@
 # 20201109/bie: fix german translation
 # 20210627/bie: add module and extended support for ttn-letterbox-notifyDbusSignal.pm
 # 20210628/bie: add module and extended support for ttn-letterbox-notifyEmail.pm
+# 20211001/bie: adjust German translation
 #
 # TODO:
 # - lock around file writes
@@ -314,7 +315,7 @@ $translations{'timeLastReceived'}->{'de'} = "Uhrzeit der letzten Übermittlung";
 $translations{'timeLastFilled'}->{'de'} = "Uhrzeit der letzten Füllung";
 $translations{'timeLastEmptied'}->{'de'} = "Uhrzeit der letzten Leerung";
 $translations{'EMPTY'}->{'de'} = "LEER";
-$translations{'EMPTIED'}->{'de'} = "AUSGELEERT";
+$translations{'EMPTIED'}->{'de'} = "GELEERT";
 $translations{'FILLED'}->{'de'} = "GEFÜLLT";
 $translations{'FULL'}->{'de'} = "VOLL";
 $translations{'hosted on'}->{'de'} = "bereitgestellt durch";

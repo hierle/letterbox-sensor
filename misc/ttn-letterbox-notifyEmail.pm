@@ -28,6 +28,7 @@
 #
 # 20210628/bie: initial version (based on ttn-letterbox-notifyEmail.pm)
 # 20210820/bie: log empty recipent list only on debug level
+# 20211001/bie: adjust German translation
 #
 # TODO: implement faster mail delivery methods like "mailx"
 
@@ -57,7 +58,7 @@ $hooks{'notifyEmail'}->{'store_data'} = \&notifyEmail_store_data;
 
 ## translations
 $translations{'boxstatus'}->{'de'} = "Briefkasten-Status";
-$translations{'emptied'}->{'de'} = "AUSGELEERT";
+$translations{'emptied'}->{'de'} = "GELEERT";
 $translations{'filled'}->{'de'} = "GEFÜLLT";
 $translations{'at'}->{'de'} = "am";
 $translations{'At'}->{'de'} = "Am";
