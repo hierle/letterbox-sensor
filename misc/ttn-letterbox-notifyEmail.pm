@@ -29,6 +29,7 @@
 # 20210628/bie: initial version (based on ttn-letterbox-notifyEmail.pm)
 # 20210820/bie: log empty recipent list only on debug level
 # 20211001/bie: adjust German translation
+# 20211030/bie: add support for v3 API
 #
 # TODO: implement faster mail delivery methods like "mailx"
 
@@ -118,10 +119,12 @@ sub notifyEmail_store_data($$$) {
 
   return if ($notifyEmail_active != 1); # nothing to do
 
-  my $sensor = $content->{'dev_id'};
-  my $status = $content->{'payload_fields'}->{'box'};
+  my $payload;
+  $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+  $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+  my $status = $payload->{'box'};
 
-  logging("notifyEmail/store_data: called with sensor=$sensor boxstatus=$status") if defined $config{'notifyEmail.debug'};
+  logging("notifyEmail/store_data: called with sensor=$dev_id boxstatus=$status") if defined $config{'notifyEmail.debug'};
 
   if ($status =~ /^(filled|emptied)$/o) {
     # filter list
@@ -151,7 +154,7 @@ sub notifyEmail_store_data($$$) {
         $language =~ s/^;//o; # remove separator
       };
 
-      my $subject = translate("boxstatus") . ": " . $sensor . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
+      my $subject = translate("boxstatus") . ": " . $dev_id . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
 
       logging("notifyEmail/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyEmail.debug'};
 
