@@ -9,6 +9,7 @@
 # 2019xxxx/pbiering: initial version
 # 20210627/pbiering: add support for options, major extension
 # 20211030/pbiering: add support for v3 API and change to default (https://www.thethingsindustries.com/docs/reference/data-formats/)
+# 20211030/pbiering: optionally overwrite decoded payload defaults by environment
 
 program=$(basename $0)
 version="3.0.0"
@@ -159,10 +160,10 @@ echo "NOTICE: box_status=$box_status sensor=$sensor counter=$counter" >&2
 timestamp=$(date -u "+%s")
 datetime=$(date -u "+%FT%T.%NZ")
 
-temp="244"
-tempC="19"
-threshold="30"
-voltage="3.242"
+temp="${temp:-244}"
+tempC="${tempC:-19}"
+threshold="${threshold:-30}"
+voltage="${voltage:-3.242}"
 
 gtw_id="eui-b827ebff00000000" # dummy
 frequency="868.3"
