@@ -31,6 +31,7 @@
 # 20210626/bie: initial version
 # 20210627/bie: major update
 # 20211001/bie: adjust German translation
+# 20211030/bie: add support for v3 API
 
 use strict;
 use warnings;
@@ -131,10 +132,12 @@ sub notifyDbusSignal_store_data($$$) {
 
   return if ($notifyDbusSignal_active != 1); # nothing to do
 
-  my $sensor = $content->{'dev_id'};
-  my $status = $content->{'payload_fields'}->{'box'};
+  my $payload;
+  $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+  $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+  my $status = $payload->{'box'};
 
-  logging("notifyDbusSignal/store_data: called with sensor=$sensor boxstatus=$status") if defined $config{'notifyDbusSignal.debug'};
+  logging("notifyDbusSignal/store_data: called with sensor=$dev_id boxstatus=$status") if defined $config{'notifyDbusSignal.debug'};
 
   if ($status =~ /^(filled|emptied)$/o) {
     # filter list
@@ -171,7 +174,7 @@ sub notifyDbusSignal_store_data($$$) {
         $icon = "📫 ";
       };
 
-      my $message = translate("boxstatus") . ": " . $icon . $sensor . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
+      my $message = translate("boxstatus") . ": " . $icon . $dev_id . " " . translate($status) . " " . translate("at") . " " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(str2time($timeReceived)));
 
       logging("notifyDbusSignal/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyDbusSignal.debug'};
 
