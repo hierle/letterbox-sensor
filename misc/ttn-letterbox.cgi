@@ -180,6 +180,7 @@ our %config = (
   'autorefresh'   => 900,   # (seconds) of HTML autorefreshing
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
+  'debugmask'     => 0,     # debug mask (0x1: log raw JSON/POST)
   'debug'         => 0      # debug
 );
 
@@ -452,6 +453,10 @@ sub req_post() {
   my @lines;
   while (<STDIN>) {
     push @lines, $_;
+  };
+
+  if ($config{'debugmask'} & 0x1) {
+    logging("raw POST data: @lines");
   };
 
   # check contents
