@@ -216,7 +216,7 @@ if [ "$real_run" = "1" ]; then
 	else
 		echo "INFO  : call successful"
 	fi
-else 
+else
 	echo "NOTICE: dry-run mode active by default (missing: -r)" >&2
 	echo "INFO  : URL to call: $url"
 	echo "INFO  : AuthHeader : $auth_header"

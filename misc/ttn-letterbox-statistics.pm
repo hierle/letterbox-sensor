@@ -154,7 +154,7 @@ sub statistics_paintDigit($$$$$) {
 	my $col = $_[4];
 
 	my $pattern = $statistics_digitFontPattern[$d];
-  	my $bit;
+  my $bit;
 
         for (my $yd = 0; $yd < 5; $yd++) {
                 for (my $xd = 0; $xd < 3; $xd++) {
@@ -239,7 +239,7 @@ sub statistics_xpm_create($$) {
 	logging("Create new picture: " . $file) if defined $config{'statistics'}->{'debug'};
 
 	# new picture
-	$i = Image::Xpm->new(-width => $width, -height => $height);
+  $i = Image::Xpm->new(-width => $width, -height => $height);
 
 	# fill background with border color
   #logging("DEBUG : new picture: border background") if defined $config{'statistics'}->{'debug'};
@@ -320,7 +320,7 @@ sub statistics_xpm_update($$$$;$) {
   my $ygrid = $statistics_sizes{$type}->{'ygrid'};
 
   if (defined $file && ! defined $i) {
-  	$i = Image::Xpm->new(-file => $file);
+    $i = Image::Xpm->new(-file => $file);
   };
 
   my $value_stored = statistics_get_infostore($i);
@@ -377,7 +377,7 @@ sub statistics_xpm_update($$$$;$) {
 	};
 
   if (defined $file) {
-  	$i->save;
+    $i->save;
   };
 };
 
@@ -406,7 +406,7 @@ sub statistics_get_infostore($;$) {
 
   if (! defined $i && defined $file) {
     # open file
-	  $i = Image::Xpm->new(-file => $file);
+    $i = Image::Xpm->new(-file => $file);
   };
 
   my $value = 0;
@@ -556,7 +556,7 @@ sub statistics_fill_device($$$) {
 	};
 
   # finally save
-	$i->save;
+  $i->save;
 };
 
 

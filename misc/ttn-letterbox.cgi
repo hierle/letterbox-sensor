@@ -418,7 +418,7 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 sub parse_querystring(;$$) {
   ## simple query string parser
   my $qs;
- 
+
   if (! defined $_[0]) {
     $qs = $ENV{'QUERY_STRING'};
     if (!defined $qs) {
@@ -679,16 +679,16 @@ sub req_post() {
   # init in case of lastfilled/lastemptied is missing
   if ($payload->{'box'} =~ /^(full|filled)$/o) {
     if (! -e $filledfile) {
-      $filledtime_write = 1; 
+      $filledtime_write = 1;
     };
   };
-   
+
   if ($payload->{'box'} =~ /^(empty|emptied)$/o) {
     if (! -e $emptiedfile) {
-      $emptiedtime_write = 1; 
+      $emptiedtime_write = 1;
     };
   };
-   
+
   # check
   if (-e $filledfile && -e $emptiedfile) {
     # files are existing, retrieve contents
@@ -699,18 +699,18 @@ sub req_post() {
     open EMPTIEDF, "<", $emptiedfile or die;
     my $emptiedtime_ut = str2time(<EMPTIEDF>);
     close EMPTIEDF;
-     
+
     if ($payload->{'box'} eq "filled") {
       # support for future
-      $filledtime_write = 1; 
+      $filledtime_write = 1;
     } elsif ($payload->{'box'} eq "emptied") {
       # support for future
-      $emptiedtime_write = 1; 
+      $emptiedtime_write = 1;
     } elsif ($payload->{'box'} eq "full") {
       # box is full
       if ($filledtime_ut < $emptiedtime_ut) {
         # box was empty last time
-        $filledtime_write = 1; 
+        $filledtime_write = 1;
         # adjust status
         $lines[0] =~ s/"full"/"filled"/o;
         $payload->{'box'} = "filled";
@@ -732,7 +732,7 @@ sub req_post() {
     print FILLEDF $nowstr;
     close FILLEDF;
   };
- 
+
   if ($emptiedtime_write == 1) {
     open EMPTIEDF, ">", $emptiedfile or die;
     print EMPTIEDF $nowstr;
@@ -835,7 +835,7 @@ sub req_get() {
     my $lastfile = $lastfile_template;
     my $filledfile = $filledfile_template;
     my $emptiedfile = $emptiedfile_template;
-    
+
     # replace placeholders
     $lastfile =~ s/DEV_ID/$dev_id/g;
     $filledfile =~ s/DEV_ID/$dev_id/g;
@@ -914,7 +914,7 @@ sub req_get() {
     # store in hash
     $dev_hash{$dev_id}->{'box'} = $payload_last->{'box'};
 
-    my ($timeLastChange, $typeLastChange); 
+    my ($timeLastChange, $typeLastChange);
 
     if (defined $filledtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));

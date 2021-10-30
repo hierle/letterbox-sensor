@@ -13,7 +13,7 @@ function decodeUplink(input) {
   decoded.temp = input.bytes[6];
   if ((input.bytes[6] & 0x80) === 0x80) decoded.tempC = zero + (255 - input.bytes[6]) * factor;
   else decoded.tempC = zero - input.bytes[6] * factor;
-  
+
   return {
     data: decoded,
     warnings: [],

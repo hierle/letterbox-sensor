@@ -250,7 +250,7 @@ sub userauth_verify($) {
       parse_querystring(uri_decode($1), \%cookie_data);
     };
   };
- 
+
   if ($post_data{'action'} eq "logout") {
     if (defined $cookie_data{'enc'}) {
       # clear auth token
@@ -404,7 +404,7 @@ sub userauth_verify($) {
     if (! defined $password_result || $password_result eq "0") {
       response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
       exit 0;
-    }; 
+    };
   };
 
   # create authentication token
