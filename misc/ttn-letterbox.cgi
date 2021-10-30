@@ -34,7 +34,7 @@
 #     - default: 0 (do not autoregister devices)
 #     - 1 (autoregister devices)
 #   - debug=<value>
-#     - default: 0 (no debug)
+#     - default: 0 (no debug)  1 (normal debug)  2 (some tracing)
 #   - threshold.<dev_id>=<value>
 #     - default: received in JSON from sensor
 #   - delta.warn=<minutes>
@@ -513,6 +513,8 @@ sub req_post() {
     };
   };
 
+  logging("POST/auth check passed") if ($config{'debug'} > 1);
+
   # check for dev_id/hardware_serial in file
   my $found = 0;
   if (-e $devfile) {
@@ -565,6 +567,8 @@ sub req_post() {
   };
 
   if ($found == 0) {
+    logging("POST/autoregister") if ($config{'debug'} > 1);
+
     if (defined $config{'autoregister'} && $config{'autoregister'} eq "1") {
       my $line = $dev_id . ":" . $hardware_serial;
 
@@ -721,9 +725,12 @@ sub req_post() {
     };
   };
 
+  logging("POST/main finished, call now modules") if ($config{'debug'} > 1);
+
   ####################
   for my $module (sort keys %hooks) {
     if (defined $hooks{$module}->{'store_data'}) {
+      logging("POST/call now module/store_data: $module") if ($config{'debug'} > 1);
       $hooks{$module}->{'store_data'}->($dev_id, $nowstr, $content);
     };
   };
