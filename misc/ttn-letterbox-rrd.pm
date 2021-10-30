@@ -2,7 +2,7 @@
 #
 # TheThingsNetwork HTTP letter box sensor RRD extension
 #
-# (P) & (C) 2019-2019 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -24,6 +24,7 @@
 # 20191120/bie: insert dev_id into title
 # 20191214/bie: add "de" translation
 # 20200213/bie: improve layout for Mobile browers, fix RRD database definition to cover 1y instead of 12d
+# 20211030/bie: add support for v3 API
 
 use strict;
 use warnings;
@@ -235,11 +236,20 @@ sub rrd_fill_device($$) {
 				die("major problem found", "", "line not in JSON format");
 			};
 
-      $values{$timeReceived_ut}->{'voltage'} = $content->{'payload_fields'}->{'voltage'};
-      $values{$timeReceived_ut}->{'sensor'} = $content->{'payload_fields'}->{'sensor'};
-      $values{$timeReceived_ut}->{'tempC'} = $content->{'payload_fields'}->{'tempC'};
-      $values{$timeReceived_ut}->{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
-      $values{$timeReceived_ut}->{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
+      my $payload;
+      $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+      $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+
+      $values{$timeReceived_ut}->{'voltage'} = $payload->{'voltage'};
+      $values{$timeReceived_ut}->{'sensor'} = $payload->{'sensor'};
+      $values{$timeReceived_ut}->{'tempC'} = $payload->{'tempC'};
+
+      my $metadata;
+      $metadata = $content->{'uplink_message'}->{'rx_metadata'}[0]; # v3 (default)
+      $metadata = $content->{'metadata'}->{'gateways'}[0] if (! defined $metadata); # v2 (fallback)
+
+      $values{$timeReceived_ut}->{'rssi'} = $metadata->{'rssi'};
+      $values{$timeReceived_ut}->{'snr'} = $metadata->{'snr'};
     };
   };
 
@@ -283,11 +293,20 @@ sub rrd_store_data($$$) {
 
   my $timeReceived_ut = str2time($timeReceived);
 
-  $values{'voltage'} = $content->{'payload_fields'}->{'voltage'};
-  $values{'sensor'} = $content->{'payload_fields'}->{'sensor'};
-  $values{'tempC'} = $content->{'payload_fields'}->{'tempC'};
-  $values{'rssi'} = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
-  $values{'snr'} = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
+  my $payload;
+  $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+  $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+
+  $values{'voltage'} = $payload->{'voltage'};
+  $values{'sensor'} = $payload->{'sensor'};
+  $values{'tempC'} = $payload->{'tempC'};
+
+  my $metadata;
+  $metadata = $content->{'uplink_message'}->{'rx_metadata'}[0]; # v3 (default)
+  $metadata = $content->{'metadata'}->{'gateways'}[0] if (! defined $metadata); # v2 (fallback)
+
+  $values{'rssi'} = $metadata->{'rssi'};
+  $values{'snr'} = $metadata->{'snr'};
 
   rrd_update($file, $timeReceived_ut, \%values);
 };
@@ -460,3 +479,5 @@ sub rrd_html_actions($) {
 
   return $response;
 };
+
+# vim: set noai ts=2 sw=2 et:
