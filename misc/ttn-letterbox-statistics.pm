@@ -2,13 +2,16 @@
 #
 # TheThingsNetwork HTTP letter box sensor statistics extension
 #
-# (P) & (C) 2019-2019 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
 # Authors:  Dr. Peter Bieringer (bie)
 #
 # digitFontPattern/paint taken from http://ip.bieringer.de/cgn-test.html
+#
+# Supported environment:
+#   - TTN_LETTERBOX_DEBUG_GRAPHICS
 #
 # Supported Query String parameters
 #   - statistics=[on|off]
@@ -28,6 +31,7 @@
 # 20191121/bie: minor bugfixes
 # 20191214/bie: add "de" translation
 # 20200213/bie: improve layout for Mobile browers
+# 20211030/bie: add support for v3 API
 
 use strict;
 use warnings;
@@ -460,14 +464,22 @@ sub statistics_fill_device($$$) {
 				die("major problem found", "", "line not in JSON format");
 			};
 
+      my $payload;
+      $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+      $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+
+      my $counter;
+      $counter = $content->{'uplink_message'}->{'f_cnt'}; # v3 (default)
+      $counter = $content->{'counter'} if (! defined $counter); # v2 (fallback)
+
 			if ($type eq "receivedstatus") {
-				if (! defined $content->{'counter'}) {
+				if (! defined $counter) {
 					die("major problem found", "", "JSON don't contain 'counter'");
 				};
-				$values{$content->{'counter'}} = 1;
+				$values{$counter} = 1;
 
 			} elsif ($type eq "boxstatus")  {
-				if (! defined $content->{'payload_fields'}->{'box'}) {
+				if (! defined $payload->{'box'}) {
 					die("major problem found", "", "JSON don't contain 'box'");
 				};
 				my $timeReceived_ut = str2time($timeReceived);
@@ -475,9 +487,9 @@ sub statistics_fill_device($$$) {
 					die("cannot parse time: " . $timeReceived);
 				};
 
-        $values{$timeReceived_ut}->{'box'} = $content->{'payload_fields'}->{'box'};
-				$values{$timeReceived_ut}->{'sensor'} = $content->{'payload_fields'}->{'sensor'};
-        logging("statistic: boxstatus " . "timeReceived_ut=" . $timeReceived_ut . " box=" . $content->{'payload_fields'}->{'box'} . " sensor=" . $content->{'payload_fields'}->{'sensor'}) if defined $config{'statistics'}->{'debug'};
+        $values{$timeReceived_ut}->{'box'} = $payload->{'box'};
+				$values{$timeReceived_ut}->{'sensor'} = $payload->{'sensor'};
+        logging("statistic: boxstatus " . "timeReceived_ut=" . $timeReceived_ut . " box=" . $payload->{'box'} . " sensor=" . $payload->{'sensor'}) if defined $config{'statistics'}->{'debug'};
 			};
     };
     close LOGF;
@@ -587,25 +599,33 @@ sub statistics_store_data($$$) {
 
   logging("statistics/store_data: called") if defined $config{'statistics'}->{'debug'};
 
+  my $payload;
+  $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+  $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+
+  my $counter;
+  $counter = $content->{'uplink_message'}->{'f_cnt'}; # v3 (default)
+  $counter = $content->{'counter'} if (! defined $counter); # v2 (fallback)
+
   for my $type (@statistics) {
     my $file = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".xpm";
 
     if ($type eq "receivedstatus") {
-      if (! defined $content->{'counter'}) {
+      if (! defined $counter) {
         die("major problem found", "", "JSON don't contain 'counter'");
       };
-      $values{$content->{'counter'}} = 1;
-      $value = $content->{'counter'};
+      $values{$counter} = 1;
+      $value = $counter;
 
     } elsif ($type eq "boxstatus")  {
-      if (! defined $content->{'payload_fields'}->{'box'}) {
+      if (! defined $payload->{'box'}) {
         die("major problem found", "", "JSON don't contain 'box'");
       };
       my $timeReceived_ut = str2time($timeReceived);
       if (! defined $timeReceived_ut) {
         die("cannot parse time: " . $timeReceived);
       };
-      $values{$timeReceived_ut} = $content->{'payload_fields'}->{'box'};
+      $values{$timeReceived_ut} = $payload->{'box'};
       $value = $timeReceived_ut;
     };
 
