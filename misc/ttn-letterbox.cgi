@@ -119,6 +119,7 @@
 # 20210627/bie: add module and extended support for ttn-letterbox-notifyDbusSignal.pm
 # 20210628/bie: add module and extended support for ttn-letterbox-notifyEmail.pm
 # 20211001/bie: adjust German translation
+# 20211030/bie: add support for v3 API, extend debugging, add payload validator
 #
 # TODO:
 # - lock around file writes
@@ -201,6 +202,16 @@ my $today = strftime "%Y%m%d", gmtime(time);
 
 # defines from environment
 my $reqm = $ENV{'REQUEST_METHOD'};
+
+# payload validator
+my %payload_validator = (
+  'box' => '(full|empty|filled|emptied)',
+  'sensor' => '[0-9]+',
+  'temp' => '[0-9]+',
+  'tempC' => '[0-9]+',
+  'threshold' => '[0-9]+',
+  'voltage' => '[0-9.]+',
+);
 
 ####################
 ## basic error check
@@ -480,7 +491,10 @@ sub req_post() {
   };
 
   # extract & check dev_id
-  my $dev_id = $content->{'dev_id'};
+  my $dev_id;
+  $dev_id = $content->{'end_device_ids'}->{'device_id'}; # v3 (default)
+  $dev_id = $content->{'dev_id'} if (! defined $dev_id); # v2 (fallback)
+
   if (! defined $dev_id) {
     response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'dev_id' not found");
     exit;
@@ -490,8 +504,13 @@ sub req_post() {
     exit;
   };
 
+  logging("POST/dev_id check passed: $dev_id") if ($config{'debug'} > 1);
+
   # extract & check hardware_serial
-  my $hardware_serial = $content->{'hardware_serial'};
+  my $hardware_serial;
+  $hardware_serial = $content->{'end_device_ids'}->{'dev_eui'}; # v3 (default)
+  $hardware_serial = $content->{'hardware_serial'} if (! defined $hardware_serial); # v2 (fallback)
+
   if (! defined $hardware_serial) {
     response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'hardware_serial' not found");
     exit;
@@ -500,6 +519,42 @@ sub req_post() {
     response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'hardware_serial' contains illegal chars/improper length");
     exit;
   };
+
+  logging("POST/hardware_serial check passed: $hardware_serial") if ($config{'debug'} > 1);
+
+  ## check payload anchor in JSON
+  my $metadata;
+  $metadata = $content->{'uplink_message'}->{'rx_metadata'}[0]; # v3 (default)
+  $metadata = $content->{'metadata'}->{'gateways'}[0] if (! defined $metadata); # v2 (fallback)
+
+  if (! defined $metadata) {
+    response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'metadata' (v2) or 'rx_metadata' (v3) not detected");
+    exit;
+  };
+
+  ## check payload anchor in JSON
+  my $payload;
+  $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+  $payload = $content->{'payload_fields'} if (! defined $payload); # v2 (fallback)
+
+  if (! defined $payload) {
+    response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'payload_fields' (v2) or 'decoded_payload' (v3) not detected");
+    exit;
+  };
+
+  for my $key (keys %payload_validator) {
+    if (!defined $payload->{$key}) {
+      response(500, "unsupported POST data", "", "POST request does contain valid JSON but payload is missing '$key'");
+      exit;
+    };
+
+    if ($payload->{$key} !~ /^$payload_validator{$key}$/) {
+      response(500, "unsupported POST data", "", "POST request does contain valid JSON but payload key '$key' contains invalid content '$payload->{$key}'");
+      exit;
+    };
+  };
+
+  logging("POST/payload check passed") if ($config{'debug'} > 1);
 
   # get optional auth header
   my $auth;
@@ -608,27 +663,27 @@ sub req_post() {
   if (defined $config{"threshold." . $dev_id}) {
     # overwrite threshold if given
     my $threshold = $config{"threshold." . $dev_id};
-    $content->{'payload_fields'}->{'threshold'} = $threshold;
+    $payload->{'threshold'} = $threshold;
 
-    my $sensor = $content->{'payload_fields'}->{'sensor'};
-    my $box = $content->{'payload_fields'}->{'box'};
+    my $sensor = $payload->{'sensor'};
+    my $box = $payload->{'box'};
 
     # overwrite box status with given threshold
     if (($sensor < $threshold) && ($box =~ /^(full|filled)$/o)) {
-      $content->{'payload_fields'}->{'box'} = "empty";
+      $payload->{'box'} = "empty";
     } elsif (($sensor >= $threshold) && ($box =~ /^(empty|emptied)$/o)) {
-      $content->{'payload_fields'}->{'box'} = "full";
+      $payload->{'box'} = "full";
     };
   };
 
   # init in case of lastfilled/lastemptied is missing
-  if ($content->{'payload_fields'}->{'box'} =~ /^(full|filled)$/o) {
+  if ($payload->{'box'} =~ /^(full|filled)$/o) {
     if (! -e $filledfile) {
       $filledtime_write = 1; 
     };
   };
    
-  if ($content->{'payload_fields'}->{'box'} =~ /^(empty|emptied)$/o) {
+  if ($payload->{'box'} =~ /^(empty|emptied)$/o) {
     if (! -e $emptiedfile) {
       $emptiedtime_write = 1; 
     };
@@ -645,29 +700,29 @@ sub req_post() {
     my $emptiedtime_ut = str2time(<EMPTIEDF>);
     close EMPTIEDF;
      
-    if ($content->{'payload_fields'}->{'box'} eq "filled") {
+    if ($payload->{'box'} eq "filled") {
       # support for future
       $filledtime_write = 1; 
-    } elsif ($content->{'payload_fields'}->{'box'} eq "emptied") {
+    } elsif ($payload->{'box'} eq "emptied") {
       # support for future
       $emptiedtime_write = 1; 
-    } elsif ($content->{'payload_fields'}->{'box'} eq "full") {
+    } elsif ($payload->{'box'} eq "full") {
       # box is full
       if ($filledtime_ut < $emptiedtime_ut) {
         # box was empty last time
         $filledtime_write = 1; 
         # adjust status
         $lines[0] =~ s/"full"/"filled"/o;
-        $content->{'payload_fields'}->{'box'} = "filled";
+        $payload->{'box'} = "filled";
       };
-    } elsif ($content->{'payload_fields'}->{'box'} eq "empty") {
+    } elsif ($payload->{'box'} eq "empty") {
       # box is empty
       if ($emptiedtime_ut < $filledtime_ut) {
         # box was full last time
         $emptiedtime_write = 1;
         # adjust status
         $lines[0] =~ s/"empty"/"emptied"/o;
-        $content->{'payload_fields'}->{'box'} = "emptied";
+        $payload->{'box'} = "emptied";
       };
     };
   };
@@ -824,18 +879,28 @@ sub req_get() {
       exit;
     };
 
-    if ($hardware_serial ne $content->{'hardware_serial'}) {
-      response(500, "major problem found", "", $hardware_serial . "(" . length($hardware_serial) . "/" . $devfile . ") not matching " . $content->{'hardware_serial'} . " (" . length($content->{'hardware_serial'}) . "/" . $lastfile . ")");
+    my $hardware_serial_last;
+    $hardware_serial_last = $content->{'end_device_ids'}->{'dev_eui'}; # v3 (default)
+    $hardware_serial_last = $content->{'hardware_serial'} if (! defined $hardware_serial); # v2 (fallback)
+    if ($hardware_serial ne $hardware_serial_last) {
+      response(500, "major problem found", "", $hardware_serial . "(" . length($hardware_serial) . "/" . $devfile . ") not matching " . $hardware_serial_last . " (" . length($hardware_serial_last) . "/" . $lastfile . ")");
       exit;
     };
 
-    my $sensor = $content->{'payload_fields'}->{'sensor'};
-    my $threshold = $content->{'payload_fields'}->{'threshold'};
-    my $voltage = $content->{'payload_fields'}->{'voltage'};
-    my $tempC = $content->{'payload_fields'}->{'tempC'};
-    my $time = $content->{'metadata'}->{'time'};
-    my $rssi = $content->{'metadata'}->{'gateways'}[0]->{'rssi'};
-    my $snr = $content->{'metadata'}->{'gateways'}[0]->{'snr'};
+    my $payload_last;
+    $payload_last = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
+    $payload_last = $content->{'payload_fields'} if (! defined $payload_last); # v2 (fallback)
+    my $sensor = $payload_last->{'sensor'};
+    my $threshold = $payload_last->{'threshold'};
+    my $voltage = $payload_last->{'voltage'};
+    my $tempC = $payload_last->{'tempC'};
+
+    my $metadata_last;
+    $metadata_last = $content->{'uplink_message'}->{'rx_metadata'}[0]; # v3 (default)
+    $metadata_last = $content->{'metadata'}->{'gateways'}[0] if (! defined $metadata_last); # v2 (fallback)
+    my $time = $metadata_last->{'time'};
+    my $rssi = $metadata_last->{'rssi'};
+    my $snr = $metadata_last->{'snr'};
 
     # overwrite threshold if given
     if (defined $config{"threshold." . $dev_id}) {
@@ -847,7 +912,7 @@ sub req_get() {
     my $timeReceived_ut = str2time($timeReceived);
 
     # store in hash
-    $dev_hash{$dev_id}->{'box'} = $content->{'payload_fields'}->{'box'};
+    $dev_hash{$dev_id}->{'box'} = $payload_last->{'box'};
 
     my ($timeLastChange, $typeLastChange); 
 
