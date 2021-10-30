@@ -8,9 +8,10 @@
 #
 # 2019xxxx/pbiering: initial version
 # 20210627/pbiering: add support for options, major extension
+# 20211030/pbiering: add support for v3 API and change to default (https://www.thethingsindustries.com/docs/reference/data-formats/)
 
 program=$(basename $0)
-version="0.0.2"
+version="3.0.0"
 
 counter_file="./$(basename $0 .sh).counter"
 
@@ -31,10 +32,11 @@ $program -U <url> -H <auth-header> -D <device-id> [-S <serial>] [-C <counter-fil
   -S <serial>          hardware serial (default: $hw_serial)
   -d                   debug
   -r                   real-run (otherwise only print what will be done)
+  -2                   switch to v2 API (legacy)
 END
 }
 
-while getopts "C:A:U:D:B:rdh?" opt; do
+while getopts "C:A:U:D:B:r2dh?" opt; do
 	case $opt in
 	    C)
 		counter_file="$OPTARG"
@@ -59,6 +61,9 @@ while getopts "C:A:U:D:B:rdh?" opt; do
 		;;
 	    r)
 		real_run=1
+		;;
+	    2)
+		ttnv2=1
 		;;
 	    ?|h)
 		help
@@ -174,12 +179,34 @@ user_agent="$program/$version"
 
 print_request() {
 	# TODO: calculate "payload_raw" according to provided values
+
+	if [ "$ttnv2" = "1" ]; then
 	cat <<END
 {"app_id":"$device_id","dev_id":"$device_id","hardware_serial":"$hw_serial","port":1,"counter":$counter,"payload_raw":"/6oMgQIe9A==","payload_fields":{"box":"$box_status","sensor":$sensor,"temp":$temp,"tempC":$tempC,"threshold":$threshold,"voltage":$voltage},"metadata":{"time":"$datetime","frequency":$frequency,"modulation":"LORA","data_rate":"SF7BW125","coding_rate":"4/5","gateways":[{"gtw_id":"$gtw_id","timestamp":$timestamp,"time":"$datetime","channel":$channel,"rssi":$rssi,"snr":$snr,"rf_chain":$rf_chain,"latitude":$latitude,"longitude":$longitude,"altitude":$altitude}]},"downlink_url":"$downlink_url"}
 END
+
+	else # ttnv2
+	cat <<END
+{"end_device_ids":{"device_id":"$device_id","application_ids":{"application_id":"letterbox-sensor"},"dev_eui":"$hw_serial","join_eui":"000000000000","dev_addr":"00000000"},"correlation_ids":["as:up:00000000000000000000000000","gs:conn:00000000000000000000000000","gs:up:host:00000000000000000000000000","gs:uplink:00000000000000000000000000","ns:uplink:00000000000000000000000000","rpc:/ttn.lorawan.v3.GsNs/HandleUplink:00000000000000000000000000","rpc:/ttn.lorawan.v3.NsAs/HandleUplink:00000000000000000000000000"],"received_at":"$datetime","uplink_message":{"f_port":1,"f_cnt":15234,"frm_payload":"/5EKHwMeCQ==","decoded_payload":{"box":"$box_status","sensor":"$sensor","temp":$temp,"tempC":"$tempC","threshold":$threshold,"voltage":"$voltage"},"decoded_payload_warnings":[],"rx_metadata":[{"gateway_ids":{"gateway_id":"$gtw_id","eui":"0000000000000000"},"time":"$datetime","timestamp":$timestamp,"rssi":$rssi,"channel_rssi":$rssi,"snr":$snr,"location":{"latitude":$latitude,"longitude":$longitude,"altitude":$altitude,"source":"SOURCE_REGISTRY"},"uplink_token":"000000000000000000000000000000000000000000000000000000000000000000000000000000000"}],"settings":{"data_rate":{"lora":{"bandwidth":125000,"spreading_factor":7}},"data_rate_index":5,"coding_rate":"4/5","frequency":"$frequency","timestamp":$timestamp,"time":"$datetime"},"received_at":"$datetime","consumed_airtime":"0.056576s","network_ids":{"net_id":"000013","tenant_id":"ttn","cluster_id":"ttn-eu1"}}}
+END
+	fi # ttnv2
 }
 
+if [ "$ttnv2" = "1" ]; then
+	user_agent="$user_agent (APIv2)"
+else
+	user_agent="$user_agent (APIv3)"
+fi
+
 if [ "$real_run" = "1" ]; then
+	if [ "$debug" = "1" ]; then
+		echo "INFO  : URL to call: $url"
+		echo "INFO  : AuthHeader : $auth_header"
+		echo "INFO  : UserAgent  : $user_agent"
+		echo "INFO  : Request BEGIN"
+		print_request
+		echo "INFO  : Request END"
+	fi
 	print_request | curl -A "$user_agent" -H "$auth_header" --data @- $url
 	rc=$?
 
