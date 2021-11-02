@@ -1,0 +1,22 @@
+function decodeUplink(input) {
+  // Decode an uplink message from a buffer
+  // (array) of bytes to an object of fields.
+  var zero = 8; // temperature at zero reading
+  var factor = 1.0; // temperature factor per bit
+  var decoded = {};
+
+  if (input.bytes[0] === 0) decoded.box = "empty";
+  else decoded.box = "full";
+  decoded.voltage = (((input.bytes[2]<<8)>>>0) + input.bytes[1])/1000;
+  decoded.sensor = ((input.bytes[4]<<8)>>>0) + input.bytes[3];
+  decoded.threshold = input.bytes[5];
+  decoded.temp = input.bytes[6];
+  if ((input.bytes[6] & 0x80) === 0x80) decoded.tempC = zero + (255 - input.bytes[6]) * factor;
+  else decoded.tempC = zero - input.bytes[6] * factor;
+
+  return {
+    data: decoded,
+    warnings: [],
+    errors: []
+  };
+}
