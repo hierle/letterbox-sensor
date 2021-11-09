@@ -120,6 +120,7 @@
 # 20210628/bie: add module and extended support for ttn-letterbox-notifyEmail.pm
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API, extend debugging, add payload validator
+# 20211109/bie: fix payload validator for "tempC" (supporting also negative values)
 #
 # TODO:
 # - lock around file writes
@@ -208,7 +209,7 @@ my %payload_validator = (
   'box' => '(full|empty|filled|emptied)',
   'sensor' => '[0-9]+',
   'temp' => '[0-9]+',
-  'tempC' => '[0-9]+',
+  'tempC' => '[0-9-]+',
   'threshold' => '[0-9]+',
   'voltage' => '[0-9.]+',
 );
