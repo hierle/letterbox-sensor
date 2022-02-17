@@ -22,6 +22,13 @@
 #   - supports version 1 sending "full" / "empty"
 #   - supports planned future version sending also "emptied" / "filled"
 #
+# Preparation
+#   - installation of following usually not by default installed Perl modules (EL8/Fedora35)
+#       perl-Data-UUID
+#       perl-URI-Encode
+#       perl-Apache-Htpasswd
+#       perl-Authen-Passphrase or perl-Crypt-SaltedHash
+#
 # Installation
 #   - store CGI into cgi-bin directory
 #   - optionally: include CGI in SSI enabled webpage using
@@ -122,13 +129,13 @@
 # 20211030/bie: add support for v3 API, extend debugging, add payload validator
 # 20211109/bie: fix payload validator for "tempC" (supporting also negative values)
 # 20220217/bie: fix "counter" related to v3 API
+# 20220217/bie: add support for Salted Hash provided by Authen::Passphrase::SaltedDigest in case of Crypt::SaltedHash (only available on EPEL7) is not installed/available
 #
 # TODO:
 # - lock around file writes
 # - safety check on config file value parsing
 # - ability to run in tainted mode
 
-# simple ttn http integration
 use English;
 use strict;
 use warnings;
@@ -136,9 +143,22 @@ use CGI;
 use POSIX qw(strftime);
 use JSON;
 use Date::Parse;
-use Crypt::SaltedHash;
 use I18N::LangTags::Detect;
 use utf8;
+
+# autodetection of supported modules for Salted Hash
+my $HAVE_Crypt_SaltedHash = 0;
+eval "use Crypt::SaltedHash";
+if ($@) {
+  $HAVE_Crypt_SaltedHash = 0;
+  eval "use Authen::Passphrase::SaltedDigest";
+  if ($@) {
+    die "Missing one of the module supporting salted hashes: Crypt::SaltedHash Authen::Passphrase::SaltedDigest";
+  };
+} else {
+  $HAVE_Crypt_SaltedHash = 1;
+};
+
 push @INC, ".";
 
 # global hooks
@@ -412,6 +432,61 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 ##############
 
 ##############
+# Hash functions
+##############
+## Generate (hardcoded SHA-512)
+## returns salted SHA-512 hashed password
+sub generate_salted_password($) {
+  my $plain = $1;
+  my $crypt;
+
+  if ($HAVE_Crypt_SaltedHash) {
+    my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
+    $csh->add($plain);
+    $crypt = $csh->generate;
+  } else {
+    # Fallback
+    my $ppr = Authen::Passphrase::SaltedDigest->new(algorithm => 'SHA-512', salt_random => 4, passphrase => $plain);
+    $crypt = "{SSHA512}" . MIME::Base64::encode_base64($ppr->hash . $ppr->salt, '')
+  };
+
+  return($crypt);
+};
+
+## Validate
+# returns: 1->validated 0->nomatch
+sub validate_salted_password($$) {
+  my $crypt = $1;
+  my $plain = $2;
+
+  if ($HAVE_Crypt_SaltedHash) {
+    if (Crypt::SaltedHash->validate($crypt, $plain)) {
+      return 1;
+    } else {
+      return 0;
+    };
+  } else {
+    # Fallback
+    if ($crypt !~ s/^{SSHA512}(.*)$//o) {
+      die "validate_salted_password: crypt string contains unsupported hash method: $crypt";
+    };
+
+    $crypt = $1; # payload (Base64 encoded)
+    $crypt = MIME::Base64::decode_base64($crypt); # convert into binary
+    $crypt = unpack "H*", $crypt; # convert into hex string
+    # create object, hex encoded SHA512 has 128 chars
+    my $ppr = Authen::Passphrase::SaltedDigest->new(algorithm => 'SHA-512', salt_hex => substr($crypt, 128), hash_hex => substr($crypt, 0, 128));
+
+    # final validation
+    if ($ppr->match($plain)) {
+      return 1;
+    } else {
+      return 0;
+    };
+  };
+};
+
+##############
 ## query string parser
 ## default: QUERY_STRING,REDIRECT_QUERY_STRING,HTTP_X_TTN_LETTERBOX_QUERY_STRING
 ## optional: given querystring
@@ -586,7 +661,7 @@ sub req_post() {
         if (defined $2 && $2 eq $hardware_serial) {
           if (defined $auth && defined $3) {
             # password defined and  given
-            if (Crypt::SaltedHash->validate($3, $auth)) {
+            if (validate_salted_password($3, $auth)) {
               # password defined and given and match
               $found = 1;
               last;
@@ -600,9 +675,8 @@ sub req_post() {
             exit;
           } elsif (defined $auth) {
             # password given but not defined
-            my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
-            $csh->add($auth);
-            logging("request received with password, strongly recommend to replace entry in $devfile with $dev_id:$hardware_serial:" . $csh->generate);
+            my $crypt = generate_salted_password($auth);
+            logging("request received with password, strongly recommend to replace entry in $devfile with $dev_id:$hardware_serial:" . $crypt);
             $found = 1;
             last;
           } else {
@@ -630,9 +704,7 @@ sub req_post() {
       my $line = $dev_id . ":" . $hardware_serial;
 
       if (defined $auth) {
-        my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
-        $csh->add($auth);
-        $line .= ":" . $csh->generate;
+        $line .= ":" . generate_salted_password($auth);
       };
 
       # add to file
