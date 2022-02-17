@@ -437,7 +437,7 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 ## Generate (hardcoded SHA-512)
 ## returns salted SHA-512 hashed password
 sub generate_salted_password($) {
-  my $plain = $1;
+  my $plain = $_[0];
   my $crypt;
 
   if ($HAVE_Crypt_SaltedHash) {
@@ -456,8 +456,8 @@ sub generate_salted_password($) {
 ## Validate
 # returns: 1->validated 0->nomatch
 sub validate_salted_password($$) {
-  my $crypt = $1;
-  my $plain = $2;
+  my $crypt = $_[0];
+  my $plain = $_[1];
 
   if ($HAVE_Crypt_SaltedHash) {
     if (Crypt::SaltedHash->validate($crypt, $plain)) {
@@ -467,7 +467,7 @@ sub validate_salted_password($$) {
     };
   } else {
     # Fallback
-    if ($crypt !~ s/^{SSHA512}(.*)$//o) {
+    if ($crypt !~ /^{SSHA512}(.*)$/o) {
       die "validate_salted_password: crypt string contains unsupported hash method: $crypt";
     };
 
@@ -660,8 +660,8 @@ sub req_post() {
         # dev_id found
         if (defined $2 && $2 eq $hardware_serial) {
           if (defined $auth && defined $3) {
-            # password defined and  given
-            if (validate_salted_password($3, $auth)) {
+            # password defined and given, crypt string is starting with : from regex above
+            if (validate_salted_password(substr($3, 1), $auth)) {
               # password defined and given and match
               $found = 1;
               last;
