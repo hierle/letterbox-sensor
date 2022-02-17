@@ -10,7 +10,7 @@
 # (P) & (C) 2019-2019 Alexander Hierle <alex@hierle.com>
 #
 # Major extensions:
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -121,6 +121,7 @@
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API, extend debugging, add payload validator
 # 20211109/bie: fix payload validator for "tempC" (supporting also negative values)
+# 20220217/bie: fix "counter" related to v3 API
 #
 # TODO:
 # - lock around file writes
@@ -958,7 +959,8 @@ sub req_get() {
     $dev_hash{$dev_id}->{'info'}->{'voltage'} = $voltage;
     $dev_hash{$dev_id}->{'info'}->{'rssi'} = $rssi;
     $dev_hash{$dev_id}->{'info'}->{'snr'} = $snr;
-    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'counter'};
+    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'counter'} if defined ($content->{'counter'}); # v2
+    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'uplink_message'}->{'f_cnt'} if defined ($content->{'uplink_message'}->{'f_cnt'}); # v3
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} = $hardware_serial;
     # mask hardware_serial
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} =~ s/(..)....(..)/$1****$2/g;
