@@ -228,11 +228,13 @@ sub userauth_verify($) {
 
   if (! defined $ENV{'CONTENT_TYPE'} || $ENV{'CONTENT_TYPE'} ne "application/x-www-form-urlencoded") {
     # not handling
+    logging("userauth_verify: no form detected, not responsible, skip") if defined $config{'userauth.debug'};
     return;
   };
 
   if ($_[0] =~ /^{/o) {
     # looks like start of JSON, not handling
+    logging("userauth_verify: JSON content detected, not responsible, skip") if defined $config{'userauth.debug'};
     return;
   };
 
@@ -594,3 +596,5 @@ sub userauth_check_acl($) {
 
   return($result);
 };
+
+# vim: set noai ts=2 sw=2 et:
