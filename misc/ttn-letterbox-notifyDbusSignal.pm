@@ -1,15 +1,12 @@
 #!/bin/perl -w -T
 #
-# TheThingsNetwork HTTP letter box sensor notification to Signal (via D-Bus)
+# TheThingsNetwork HTTP letter box sensor notification to "Signal" (via D-Bus)
 #
-# (P) & (C) 2021-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2021-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
 # Authors:  Dr. Peter Bieringer (bie)
-#
-# Supported environment:
-#   - TTN_LETTERBOX_DEBUG_NOTIFYDBUSSIGNAL
 #
 # Required system features
 #   - "signal-cli" accessable via D-Bus interface, see https://ct.de/ywjz
@@ -26,12 +23,17 @@
 #   - D-Bus destination (currently only supported: "org.asamk.Signal")
 #       notifyDbusSignal.dest=org.asamk.Signal
 #
+# Optional configuration:
+#   - control debug
+#       notifyDbusSignal.enable=1
+#
 # Honors entries starting with "signal=" from "@notify_list" provided by main CGI
 #
 # 20210626/bie: initial version
 # 20210627/bie: major update
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API
+# 20220218/bie: remove support of debug option by environment
 
 use strict;
 use warnings;
@@ -72,10 +74,6 @@ my $notifyDbusSignal_enable = 0;
 sub notifyDbusSignal_init() {
   # set feature
   $features{'notify'} = 1;
-
-  if (defined $ENV{'TTN_LETTERBOX_DEBUG_NOTIFYDBUSSIGNAL'}) {
-    $config{'notifyDbusSignal.debug'} = 1;
-  };
 
   if (defined $config{'notifyDbusSignal.debug'} && $config{'notifyDbusSignal.debug'} eq "0") {
     undef $config{'notifyDbusSignal.debug'};
