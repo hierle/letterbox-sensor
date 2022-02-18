@@ -27,6 +27,7 @@
 #
 # Honors entries starting with "email=" from "@notify_list" provided by main CGI
 #
+# Changelog:
 # 20210628/bie: initial version (based on ttn-letterbox-notifyEmail.pm)
 # 20210820/bie: log empty recipent list only on debug level
 # 20211001/bie: adjust German translation

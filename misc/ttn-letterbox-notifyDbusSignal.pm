@@ -29,6 +29,7 @@
 #
 # Honors entries starting with "signal=" from "@notify_list" provided by main CGI
 #
+# Changelog:
 # 20210626/bie: initial version
 # 20210627/bie: major update
 # 20211001/bie: adjust German translation

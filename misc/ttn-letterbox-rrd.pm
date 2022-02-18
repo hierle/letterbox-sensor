@@ -13,10 +13,12 @@
 #   - rrdRange=[day|week|month|year]
 #
 # Required configuration:
-#   datadir=<path>
+#   - data directory
+#       datadir=<path>
 #
 # Optional configuration:
-#   rrd.debug=1
+#   - control debug
+#       rrd.debug=1
 #
 # Changelog:
 # 20191110/bie: initial version

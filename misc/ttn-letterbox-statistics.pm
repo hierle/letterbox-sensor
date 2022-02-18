@@ -14,10 +14,12 @@
 #   - statistics=[on|off]
 #
 # Required configuration:
-#   datadir=<path>
+#   - data directory
+#       datadir=<path>
 #
 # Optional configuration:
-#   statistics.debug=1
+#   - control debug
+#       statistics.debug=1
 #
 # Changelog:
 # 20191101/bie: initial version
