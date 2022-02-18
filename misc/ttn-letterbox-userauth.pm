@@ -2,18 +2,23 @@
 #
 # TheThingsNetwork HTTP letter box user authentication extension
 #
-# (P) & (C) 2019-2019 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
 # Authors:  Dr. Peter Bieringer (bie)
 #
+# Required configuration:
+#   - data directory
+#	datadir=<path>
 #
-# Supported environment:
-#   - TTN_LETTERBOX_DEBUG_USERAUTH
+# Optional configuration:
+#   - control debugging
+# 	userauth.debug=1
 #
-# Supported settings in configuration file:
-#   - userauth.feature.changepw=1 (currently unfinished)
+#   - enable password change
+#	userauth.feature.changepw=1 (currently unfinished)
+#
 #
 # user file:
 #   - name: $datadir . "/ttn.users.list"
@@ -39,11 +44,13 @@
 # verify token
 #   - verify contents of encrypted TTN-AUTH-TOKEN
 #
+# Changelog:
 # 20191116/bie: initial version
 # 20191117/bie: major rework
 # 20191118/bie: honor time token from cookie, store expiry in auth cookie
 # 20191119/bie: start implementing password change (still unfinished)
 # 20191214/bie: add transation "de"
+# 20220218/bie: remove support of debug option by environment, align debug options
 
 use strict;
 use warnings;
@@ -114,13 +121,13 @@ $translations{'will be redirected back'}->{'de'} = "wird nun zurückgeleitet";
 ## initialization
 ##############
 sub userauth_init() {
-  $userfile = $datadir . "/ttn.users.list";
-
-  if (defined $ENV{'TTN_LETTERBOX_DEBUG_USERAUTH'}) {
-    $config{'userauth'}->{'debug'} = 1;
+  if (defined $config{'userauth.debug'} && $config{'userauth.debug'} eq "0") {
+    undef $config{'userauth.debug'};
   };
 
-  logging("userauth/init: called") if defined $config{'userauth'}->{'debug'};
+  $userfile = $datadir . "/ttn.users.list";
+
+  logging("userauth/init: called") if defined $config{'userauth.debug'};
 };
 
 
@@ -128,11 +135,11 @@ sub userauth_init() {
 ## check authentication
 ##############
 sub userauth_check() {
-  logging("userauth_check") if defined $config{'userauth'}->{'debug'};
+  logging("userauth_check") if defined $config{'userauth.debug'};
 
   # check cookie
   if (defined $ENV{'HTTP_COOKIE'}) {
-    logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth'}->{'debug'};
+    logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth.debug'};
     my $line = $ENV{'HTTP_COOKIE'};
     if ($line =~ /^TTN-AUTH-TOKEN=(.+)/o) {
       parse_querystring(uri_decode($1), \%cookie_data);
@@ -153,7 +160,7 @@ sub userauth_check() {
 ## generate authentication
 ##############
 sub userauth_generate() {
-  logging("userauth_generate") if defined $config{'userauth'}->{'debug'};
+  logging("userauth_generate") if defined $config{'userauth.debug'};
 
   my $ug = new Data::UUID;
   my $uuid;
@@ -173,7 +180,7 @@ sub userauth_generate() {
   my $time = time;
   my $rand = rand();
   my $session_token = sha512_base64("uuid=" . $ug->to_string($uuid) . ":time=" . $time . ":random=" . $rand);
-  logging("session generation uuid=" . $ug->to_string($uuid) . " time=" . $time . " rand=" . $rand) if defined $config{'userauth'}->{'debug'};
+  logging("session generation uuid=" . $ug->to_string($uuid) . " time=" . $time . " rand=" . $rand) if defined $config{'userauth.debug'};
 
   # split
   my $session_token_form = substr($session_token, 0, $session_token_split);
@@ -214,7 +221,7 @@ sub userauth_generate() {
 ## verify authentication
 ##############
 sub userauth_verify($) {
-  logging("userauth_verify") if defined $config{'userauth'}->{'debug'};
+  logging("userauth_verify") if defined $config{'userauth.debug'};
 
   my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default clear cookie
   my $cookie_found = 0;
@@ -243,7 +250,7 @@ sub userauth_verify($) {
   };
 
   if (defined $ENV{'HTTP_COOKIE'}) {
-    logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth'}->{'debug'};
+    logging("HTTP_COOKIE: " . uri_decode($ENV{'HTTP_COOKIE'})) if defined $config{'userauth.debug'};
     my $line = $ENV{'HTTP_COOKIE'};
     if ($line =~ /^TTN-AUTH-TOKEN=(.+)/o) {
       $cookie_found = 1;
@@ -354,9 +361,9 @@ sub userauth_verify($) {
   # check session token
   my $session_token = uri_decode($post_data{'session_token_form'}) . $cookie_data{'session_token_cookie'};
   my $session_token_reference = sha512_base64("uuid=" . $ug->to_string($uuid) . ":time=" . $cookie_data{'time'} . ":random=" . $post_data{'rand'});
-  logging("session verification uuid=" . $ug->to_string($uuid) . " time=" . $cookie_data{'time'} . " rand=" . $post_data{'rand'}) if defined $config{'userauth'}->{'debug'};
-  logging("session verification tokenR=" . $session_token_reference) if defined $config{'userauth'}->{'debug'};
-  logging("session verification tokenF=" . $session_token) if defined $config{'userauth'}->{'debug'};
+  logging("session verification uuid=" . $ug->to_string($uuid) . " time=" . $cookie_data{'time'} . " rand=" . $post_data{'rand'}) if defined $config{'userauth.debug'};
+  logging("session verification tokenR=" . $session_token_reference) if defined $config{'userauth.debug'};
+  logging("session verification tokenF=" . $session_token) if defined $config{'userauth.debug'};
 
   if ($session_token ne $session_token_reference) {
     $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1);
@@ -388,14 +395,14 @@ sub userauth_verify($) {
     exit 0;
   };
 
-  logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'})) if defined $config{'userauth'}->{'debug'};;
+  logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'})) if defined $config{'userauth.debug'};;
 
   if ($password_hash =~ /^\$2(.)\$([0-9]+)\$([A-Za-z0-9+\/\.]{22})(.*)$/o) {
     # bcrypt
     my $hash = en_base64(bcrypt_hash({ key_nul => 1, cost => $2, salt => de_base64($3)}, $post_data{'password'}));
     if ($hash ne $4) {
       response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
-      logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'} . " hash=" . $hash)) if defined $config{'userauth'}->{'debug'};;
+      logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'} . " hash=" . $hash)) if defined $config{'userauth.debug'};;
       exit 0;
     };
   } else {
@@ -413,8 +420,8 @@ sub userauth_verify($) {
   my $ciphertext = $cipher->encrypt($plaintext);
   my $auth_token = encode_base64($ciphertext, "");
 
-  logging("plaintext:" . $plaintext) if defined $config{'userauth'}->{'debug'};
-  logging("ciphertext=" . $auth_token) if defined $config{'userauth'}->{'debug'};
+  logging("plaintext:" . $plaintext) if defined $config{'userauth.debug'};
+  logging("ciphertext=" . $auth_token) if defined $config{'userauth.debug'};
 
   # create cookie
   $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "ver=1&enc=" . $auth_token, -expires => '+' . $auth_token_lifetime . 's', -secure => 1, -httponly => 1);
@@ -431,7 +438,7 @@ sub userauth_verify($) {
 ## verify authentication token
 ##############
 sub userauth_verify_token() {
-  logging("userauth_verify_token") if defined $config{'userauth'}->{'debug'};
+  logging("userauth_verify_token") if defined $config{'userauth.debug'};
 
   my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1); # default clear cookie
 
@@ -455,11 +462,11 @@ sub userauth_verify_token() {
   };
 
   # decrypt authentication token
-  logging("ciphertext=" . $cookie_data{'enc'}) if defined $config{'userauth'}->{'debug'};
+  logging("ciphertext=" . $cookie_data{'enc'}) if defined $config{'userauth.debug'};
   my $ciphertext = decode_base64(uri_decode($cookie_data{'enc'}));
   my $cipher = Crypt::CBC->new(-key => sha512($config{'uuid'}), -cipher => 'Rijndael');
   my $plaintext = $cipher->decrypt($ciphertext);
-  logging("plaintext:" . $plaintext) if defined $config{'userauth'}->{'debug'};
+  logging("plaintext:" . $plaintext) if defined $config{'userauth.debug'};
 
   parse_querystring($plaintext, \%user_data);
 
@@ -483,7 +490,7 @@ sub userauth_verify_token() {
     exit 0;
   };
 
-  logging("from-htpassd-password_hash=" . $password_hash . " from cookie-password_hash=" . $user_data{'password_hash'}) if defined $config{'userauth'}->{'debug'};
+  logging("from-htpassd-password_hash=" . $password_hash . " from cookie-password_hash=" . $user_data{'password_hash'}) if defined $config{'userauth.debug'};
 
   if ($password_hash ne $user_data{'password_hash'}) {
     response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted from cookie)</font>", "", "authentication token invalid", $cookie, 10);
@@ -565,7 +572,7 @@ sub userauth_show() {
 ## return 1 if permitted, otherwise 0
 ##############
 sub userauth_check_acl($) {
-  logging("userauth_check_acl") if defined $config{'userauth'}->{'debug'};
+  logging("userauth_check_acl") if defined $config{'userauth.debug'};
 
   my $result = 0;
 
@@ -583,7 +590,7 @@ sub userauth_check_acl($) {
     $result = 1;
   };
 
-  logging("userauth_check_acl for username=" . $user_data{'username'} . " dev_id=" . $_[0] . " result=" . $result) if defined $config{'userauth'}->{'debug'};
+  logging("userauth_check_acl for username=" . $user_data{'username'} . " dev_id=" . $_[0] . " result=" . $result) if defined $config{'userauth.debug'};
 
   return($result);
 };
