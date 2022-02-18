@@ -2,7 +2,7 @@
 #
 # TheThingsNetwork HTTP letter box sensor RRD extension
 #
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -12,9 +12,15 @@
 #   - rrd=[on|off]
 #   - rrdRange=[day|week|month|year]
 #
-# Supported environment
-#   - TTN_LETTERBOX_DEBUG_RRD
+# Required configuration:
+#   - data directory
+#       datadir=<path>
 #
+# Optional configuration:
+#   - control debug
+#       rrd.debug=1
+#
+# Changelog:
 # 20191110/bie: initial version
 # 20191111/bie: add support for snr/rssi, change RRD font render mode
 # 20191112/bie: rework button implementation
@@ -25,6 +31,7 @@
 # 20191214/bie: add "de" translation
 # 20200213/bie: improve layout for Mobile browers, fix RRD database definition to cover 1y instead of 12d
 # 20211030/bie: add support for v3 API
+# 20220218/bie: align config options, do not die in case of RRD updates happen too often
 
 use strict;
 use warnings;
@@ -130,7 +137,7 @@ my %rrd_range = (
 sub rrd_create($) {
   my $file = $_[0];
 
-	logging("Create  new RRD: " . $file) if defined $config{'rrd'}->{'debug'};
+	logging("Create  new RRD: " . $file) if defined $config{'rrd.debug'};
 
   # 86400 s * 365 d / 300 s = 105120 measurements
   RRDs::create($file,
@@ -158,7 +165,7 @@ sub rrd_create($) {
   my $ERR=RRDs::error;
   die "ERROR : RRD::create problem " . $file .": $ERR\n" if $ERR;
 
-	logging("Created new RRD: " . $file) if defined $config{'rrd'}->{'debug'};
+	logging("Created new RRD: " . $file) if defined $config{'rrd.debug'};
 };
 
 
@@ -178,13 +185,20 @@ sub rrd_update($$$) {
 
   my $rrd = join(":", @data);
 
-	logging("Update  RRD: " . $file . " with: " . $rrd) if defined $config{'rrd'}->{'debug'};
+	logging("Update  RRD: " . $file . " with: " . $rrd) if defined $config{'rrd.debug'};
 
   RRDs::update($file, $rrd);
   my $ERR=RRDs::error;
-  die "ERROR : RRD::update problem " . $file .": $ERR\n" if $ERR;
-
-	logging("Updated RRD: " . $file) if defined $config{'rrd'}->{'debug'};
+  if ($ERR) {
+    if ($ERR =~ /minimum one second step/o) {
+      # only a transient issue
+      logging("Updated RRD: not possible: $ERR:" . $file) if defined $config{'rrd.debug'};
+    } else {
+      die "ERROR : RRD::update problem " . $file .": $ERR\n" if $ERR;
+    };
+  } else {
+	  logging("Updated RRD: " . $file) if defined $config{'rrd.debug'};
+  };
 };
 
 
@@ -192,11 +206,11 @@ sub rrd_update($$$) {
 ## init module
 ############
 sub rrd_init() {
-  if (defined $ENV{'TTN_LETTERBOX_DEBUG_RRD'}) {
-    $config{'rrd'}->{'debug'} = 1;
+  if (defined $config{'rrd.debug'} && $config{'rrd.debug'} eq "0") {
+    undef $config{'rrd.debug'};
   };
 
-  logging("rrd/init: called") if defined $config{'rrd'}->{'debug'};
+  logging("rrd/init: called") if defined $config{'rrd.debug'};
 };
 
 ## fill historical data of device
@@ -213,7 +227,7 @@ sub rrd_fill_device($$) {
   while (my $entry = readdir(DIR)) {
     next unless (-f "$dir/$entry");
     next unless ($entry =~ /^ttn\.$dev_id\.[0-9]+\.raw.log$/);
-    logging("DEBUG : logfile found: " . $entry) if defined $config{'rrd'}->{'debug'};
+    logging("DEBUG : logfile found: " . $entry) if defined $config{'rrd.debug'};
     push @logfiles, $entry;
   };
 
@@ -264,17 +278,17 @@ sub rrd_fill_device($$) {
 sub rrd_init_device($) {
   my $dev_id = $_[0];
 
-  logging("Called: init_device with dev_id=" . $dev_id) if defined $config{'rrd'}->{'debug'};
+  logging("Called: init_device with dev_id=" . $dev_id) if defined $config{'rrd.debug'};
 
   my $file = $config{'datadir'} . "/ttn." . $dev_id . ".rrd";
 
-  logging("DEBUG : check for file: " . $file) if defined $config{'rrd'}->{'debug'};
+  logging("DEBUG : check for file: " . $file) if defined $config{'rrd.debug'};
   if (! -e $file) {
-    logging("DEBUG : file missing, create now: " . $file) if defined $config{'rrd'}->{'debug'};
+    logging("DEBUG : file missing, create now: " . $file) if defined $config{'rrd.debug'};
     rrd_create($file);
     rrd_fill_device($dev_id, $file);
   } else {
-    logging("DEBUG : file already existing: " . $file) if defined $config{'rrd'}->{'debug'};
+    logging("DEBUG : file already existing: " . $file) if defined $config{'rrd.debug'};
   };
 };
 
@@ -287,7 +301,7 @@ sub rrd_store_data($$$) {
 
   my %values;
 
-  logging("rrd/store_data: called") if defined $config{'rrd'}->{'debug'};
+  logging("rrd/store_data: called") if defined $config{'rrd.debug'};
 
   my $file = $config{'datadir'} . "/ttn." . $dev_id . ".rrd";
 
@@ -319,18 +333,18 @@ sub rrd_get_graphics($$) {
 
   my %html;
 
-  logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'rrd'}->{'debug'};
+  logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'rrd.debug'};
 
   my $file = $config{'datadir'} . "/ttn." . $dev_id . ".rrd";
 
   my $rrdRange = $querystring_hp->{'rrdRange'} || "day";
 
-  logging("DEBUG : check for file: " . $file) if defined $config{'rrd'}->{'debug'};
+  logging("DEBUG : check for file: " . $file) if defined $config{'rrd.debug'};
   if (! -e $file) {
-    logging("DEBUG : file missing, skip: " . $file) if defined $config{'rrd'}->{'debug'};
+    logging("DEBUG : file missing, skip: " . $file) if defined $config{'rrd.debug'};
   } else {
     for my $type (@rrd) {
-      logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd'}->{'debug'};
+      logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd.debug'};
 
       my $output = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".png";
 
@@ -405,7 +419,7 @@ sub rrd_get_graphics($$) {
       my $png_base64 = encode_base64($image->png(9), "");
       $html{"RRD:" . $type} = '<img alt="' . $type . '" src="data:image/png;base64,' . $png_base64 . '">';
 
-      logging("DEBUG : exported graphics: " . $file . " type:" . $type . " size=" . length($png_base64)) if defined $config{'rrd'}->{'debug'};
+      logging("DEBUG : exported graphics: " . $file . " type:" . $type . " size=" . length($png_base64)) if defined $config{'rrd.debug'};
     };
   };
   return %html;

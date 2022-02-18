@@ -10,7 +10,7 @@
 # (P) & (C) 2019-2019 Alexander Hierle <alex@hierle.com>
 #
 # Major extensions:
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -21,6 +21,13 @@
 # Compatibility of letterbox-sensor
 #   - supports version 1 sending "full" / "empty"
 #   - supports planned future version sending also "emptied" / "filled"
+#
+# Preparation
+#   - installation of following usually not by default installed Perl modules (EL8/Fedora35)
+#       perl-Data-UUID
+#       perl-URI-Encode
+#       perl-Apache-Htpasswd
+#       perl-Authen-Passphrase or perl-Crypt-SaltedHash
 #
 # Installation
 #   - store CGI into cgi-bin directory
@@ -121,13 +128,15 @@
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API, extend debugging, add payload validator
 # 20211109/bie: fix payload validator for "tempC" (supporting also negative values)
+# 20220217/bie: fix "counter" related to v3 API
+# 20220217/bie: add support for Salted Hash provided by Authen::Passphrase::SaltedDigest in case of Crypt::SaltedHash (only available on EPEL7) is not installed/available
+# 20220218/bie: add missing 'init_device' hook for POST
 #
 # TODO:
 # - lock around file writes
 # - safety check on config file value parsing
 # - ability to run in tainted mode
 
-# simple ttn http integration
 use English;
 use strict;
 use warnings;
@@ -135,9 +144,22 @@ use CGI;
 use POSIX qw(strftime);
 use JSON;
 use Date::Parse;
-use Crypt::SaltedHash;
 use I18N::LangTags::Detect;
 use utf8;
+
+# autodetection of supported modules for Salted Hash
+my $HAVE_Crypt_SaltedHash = 0;
+eval "use Crypt::SaltedHash";
+if ($@) {
+  $HAVE_Crypt_SaltedHash = 0;
+  eval "use Authen::Passphrase::SaltedDigest";
+  if ($@) {
+    die "Missing one of the module supporting salted hashes: Crypt::SaltedHash Authen::Passphrase::SaltedDigest";
+  };
+} else {
+  $HAVE_Crypt_SaltedHash = 1;
+};
+
 push @INC, ".";
 
 # global hooks
@@ -411,6 +433,61 @@ if (defined $reqm && $reqm eq "POST") { # POST data
 ##############
 
 ##############
+# Hash functions
+##############
+## Generate (hardcoded SHA-512)
+## returns salted SHA-512 hashed password
+sub generate_salted_password($) {
+  my $plain = $_[0];
+  my $crypt;
+
+  if ($HAVE_Crypt_SaltedHash) {
+    my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
+    $csh->add($plain);
+    $crypt = $csh->generate;
+  } else {
+    # Fallback
+    my $ppr = Authen::Passphrase::SaltedDigest->new(algorithm => 'SHA-512', salt_random => 4, passphrase => $plain);
+    $crypt = "{SSHA512}" . MIME::Base64::encode_base64($ppr->hash . $ppr->salt, '')
+  };
+
+  return($crypt);
+};
+
+## Validate
+# returns: 1->validated 0->nomatch
+sub validate_salted_password($$) {
+  my $crypt = $_[0];
+  my $plain = $_[1];
+
+  if ($HAVE_Crypt_SaltedHash) {
+    if (Crypt::SaltedHash->validate($crypt, $plain)) {
+      return 1;
+    } else {
+      return 0;
+    };
+  } else {
+    # Fallback
+    if ($crypt !~ /^{SSHA512}(.*)$/o) {
+      die "validate_salted_password: crypt string contains unsupported hash method: $crypt";
+    };
+
+    $crypt = $1; # payload (Base64 encoded)
+    $crypt = MIME::Base64::decode_base64($crypt); # convert into binary
+    $crypt = unpack "H*", $crypt; # convert into hex string
+    # create object, hex encoded SHA512 has 128 chars
+    my $ppr = Authen::Passphrase::SaltedDigest->new(algorithm => 'SHA-512', salt_hex => substr($crypt, 128), hash_hex => substr($crypt, 0, 128));
+
+    # final validation
+    if ($ppr->match($plain)) {
+      return 1;
+    } else {
+      return 0;
+    };
+  };
+};
+
+##############
 ## query string parser
 ## default: QUERY_STRING,REDIRECT_QUERY_STRING,HTTP_X_TTN_LETTERBOX_QUERY_STRING
 ## optional: given querystring
@@ -480,6 +557,7 @@ sub req_post() {
   # hook for authentication
   for my $module (sort keys %hooks) {
     if (defined $hooks{$module}->{'auth_verify'}) {
+      # can stay in module or return if not responsible or only tweaking content
       $hooks{$module}->{'auth_verify'}->($lines[0]);
     };
   };
@@ -584,8 +662,8 @@ sub req_post() {
         # dev_id found
         if (defined $2 && $2 eq $hardware_serial) {
           if (defined $auth && defined $3) {
-            # password defined and  given
-            if (Crypt::SaltedHash->validate($3, $auth)) {
+            # password defined and given, crypt string is starting with : from regex above
+            if (validate_salted_password(substr($3, 1), $auth)) {
               # password defined and given and match
               $found = 1;
               last;
@@ -599,9 +677,8 @@ sub req_post() {
             exit;
           } elsif (defined $auth) {
             # password given but not defined
-            my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
-            $csh->add($auth);
-            logging("request received with password, strongly recommend to replace entry in $devfile with $dev_id:$hardware_serial:" . $csh->generate);
+            my $crypt = generate_salted_password($auth);
+            logging("request received with password, strongly recommend to replace entry in $devfile with $dev_id:$hardware_serial:" . $crypt);
             $found = 1;
             last;
           } else {
@@ -629,9 +706,7 @@ sub req_post() {
       my $line = $dev_id . ":" . $hardware_serial;
 
       if (defined $auth) {
-        my $csh = Crypt::SaltedHash->new(algorithm => 'SHA-512');
-        $csh->add($auth);
-        $line .= ":" . $csh->generate;
+        $line .= ":" . generate_salted_password($auth);
       };
 
       # add to file
@@ -782,6 +857,14 @@ sub req_post() {
   };
 
   logging("POST/main finished, call now modules") if ($config{'debug'} > 1);
+
+  ####################
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'init_device'}) {
+      logging("POST/call now module/init_device: $module") if ($config{'debug'} > 1);
+      $hooks{$module}->{'init_device'}->($dev_id);
+    };
+  };
 
   ####################
   for my $module (sort keys %hooks) {
@@ -958,7 +1041,8 @@ sub req_get() {
     $dev_hash{$dev_id}->{'info'}->{'voltage'} = $voltage;
     $dev_hash{$dev_id}->{'info'}->{'rssi'} = $rssi;
     $dev_hash{$dev_id}->{'info'}->{'snr'} = $snr;
-    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'counter'};
+    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'counter'} if defined ($content->{'counter'}); # v2
+    $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'uplink_message'}->{'f_cnt'} if defined ($content->{'uplink_message'}->{'f_cnt'}); # v3
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} = $hardware_serial;
     # mask hardware_serial
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} =~ s/(..)....(..)/$1****$2/g;

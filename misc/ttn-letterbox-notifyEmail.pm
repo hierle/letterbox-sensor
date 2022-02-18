@@ -2,14 +2,11 @@
 #
 # TheThingsNetwork HTTP letter box sensor notification via E-Mail
 #
-# (P) & (C) 2021-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2021-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
 # Authors:  Dr. Peter Bieringer (bie)
-#
-# Supported environment:
-#   - TTN_LETTERBOX_DEBUG_NOTIFYEMAIL
 #
 # Required system features
 #   - available Perl module MIME::Lite
@@ -24,12 +21,18 @@
 #       EXAMPLE:
 #       notifyEmail.sender=postmaster@domain.example
 #
+# Optional configuration:
+#   - control debug
+#       notifyEmail.enable=1
+#
 # Honors entries starting with "email=" from "@notify_list" provided by main CGI
 #
+# Changelog:
 # 20210628/bie: initial version (based on ttn-letterbox-notifyEmail.pm)
 # 20210820/bie: log empty recipent list only on debug level
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API
+# 20220218/bie: remove support of debug option by environment
 #
 # TODO: implement faster mail delivery methods like "mailx"
 
@@ -75,10 +78,6 @@ my $notifyEmail_enable = 0;
 sub notifyEmail_init() {
   # set feature
   $features{'notify'} = 1;
-
-  if (defined $ENV{'TTN_LETTERBOX_DEBUG_NOTIFYEMAIL'}) {
-    $config{'notifyEmail.debug'} = 1;
-  };
 
   if (defined $config{'notifyEmail.debug'} && $config{'notifyEmail.debug'} eq "0") {
     undef $config{'notifyEmail.debug'};
