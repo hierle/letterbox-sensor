@@ -557,6 +557,7 @@ sub req_post() {
   # hook for authentication
   for my $module (sort keys %hooks) {
     if (defined $hooks{$module}->{'auth_verify'}) {
+      # can stay in module or return if not responsible or only tweaking content
       $hooks{$module}->{'auth_verify'}->($lines[0]);
     };
   };
