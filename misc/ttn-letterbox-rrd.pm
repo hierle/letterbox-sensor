@@ -204,6 +204,10 @@ sub rrd_update($$$) {
 ## init module
 ############
 sub rrd_init() {
+  if (defined $config{'rrd.debug'} && $config{'rrd.debug'} eq "0") {
+    undef $config{'rrd.debug'};
+  };
+
   logging("rrd/init: called") if defined $config{'rrd.debug'};
 };
 

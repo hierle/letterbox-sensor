@@ -430,6 +430,10 @@ sub statistics_get_infostore($;$) {
 ## init module
 ############
 sub statistics_init() {
+  if (defined $config{'statistics.debug'} && $config{'statistics.debug'} eq "0") {
+    undef $config{'statistics.debug'};
+  };
+
   logging("statistics/init: called") if defined $config{'statistics.debug'};
 };
 
