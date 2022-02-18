@@ -2,7 +2,7 @@
 #
 # TheThingsNetwork HTTP letter box sensor statistics extension
 #
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -10,12 +10,16 @@
 #
 # digitFontPattern/paint taken from http://ip.bieringer.de/cgn-test.html
 #
-# Supported environment:
-#   - TTN_LETTERBOX_DEBUG_GRAPHICS
-#
 # Supported Query String parameters
 #   - statistics=[on|off]
 #
+# Required configuration:
+#   datadir=<path>
+#
+# Optional configuration:
+#   statistics.debug=1
+#
+# Changelog:
 # 20191101/bie: initial version
 # 20191102/bie: major enhancement, support receivestatus and time+status
 # 20191105/bie: paint x/y numbers
@@ -32,6 +36,7 @@
 # 20191214/bie: add "de" translation
 # 20200213/bie: improve layout for Mobile browers
 # 20211030/bie: add support for v3 API
+# 20220218/bie: align config options, cosmetics
 
 use strict;
 use warnings;
@@ -236,18 +241,18 @@ sub statistics_xpm_create($$) {
   my $width = $xmax + $lborder + $rborder;
   my $height = $ymax + $tborder + $bborder;
 
-	logging("Create new picture: " . $file) if defined $config{'statistics'}->{'debug'};
+	logging("Create new picture: " . $file) if defined $config{'statistics.debug'};
 
 	# new picture
   $i = Image::Xpm->new(-width => $width, -height => $height);
 
 	# fill background with border color
-  #logging("DEBUG : new picture: border background") if defined $config{'statistics'}->{'debug'};
+  #logging("DEBUG : new picture: border background") if defined $config{'statistics.debug'};
 	$i->rectangle(0, 0, $width - 1, $height - 1, $color_black);
 	$i->rectangle(1, 1, $width - 2, $height - 2, $color_border, 1);
 
 	# fill background of graphics with  color
-  #logging("DEBUG : new picture: graphics background") if defined $config{'statistics'}->{'debug'};
+  #logging("DEBUG : new picture: graphics background") if defined $config{'statistics.debug'};
   $i->rectangle($lborder, $tborder, $width - $rborder - 1, $height - $bborder - 1, $color_white, 1);
 
 	# draw x ticks minor
@@ -297,7 +302,7 @@ sub statistics_xpm_create($$) {
 
 	$i->save($file);
 
-	logging("Created new picture: " . $file) if defined $config{'statistics'}->{'debug'};
+	logging("Created new picture: " . $file) if defined $config{'statistics.debug'};
 };
 
 
@@ -338,9 +343,9 @@ sub statistics_xpm_update($$$$;$) {
       $i->xy($lborder + ($value % $xmax), $tborder + (int($value / $xmax) % $ymax), $color_receivestatus_ok);
       statistics_set_infostore($i, $value);
 
-      logging("value: stored=" . $value_stored . " new=" . $value) if defined $config{'statistics'}->{'debug'};
+      logging("statistics: stored=" . $value_stored . " new=" . $value) if defined $config{'statistics.debug'};
     } else {
-      logging("value: stored=" . $value_stored . " (nothing to do)") if defined $config{'statistics'}->{'debug'};
+      logging("statistics: stored=" . $value_stored . " (nothing to do)") if defined $config{'statistics.debug'};
     };
 
     # clear at least next 5 lines
@@ -370,9 +375,9 @@ sub statistics_xpm_update($$$$;$) {
 
       statistics_set_infostore($i, $value_mod);
 
-      logging("value: stored=" . $value_stored . " new=" . $value_mod . " color=" . $color . " status=" . $data) if defined $config{'statistics'}->{'debug'};
+      logging("Update Statistics: stored=" . $value_stored . " new=" . $value_mod . " color=" . $color . " status=" . $data) if defined $config{'statistics.debug'};
     } else {
-      logging("value: stored=" . $value_stored . " (nothing to do)") if defined $config{'statistics'}->{'debug'};
+      logging("Update Statistics: stored=" . $value_stored . " (nothing to do)") if defined $config{'statistics.debug'};
     };
 	};
 
@@ -425,11 +430,7 @@ sub statistics_get_infostore($;$) {
 ## init module
 ############
 sub statistics_init() {
-  if (defined $ENV{'TTN_LETTERBOX_DEBUG_GRAPHICS'}) {
-    $config{'statistics'}->{'debug'} = 1;
-  };
-
-  logging("statistics/init: called") if defined $config{'statistics'}->{'debug'};
+  logging("statistics/init: called") if defined $config{'statistics.debug'};
 };
 
 ## fill historical data of device
@@ -447,7 +448,7 @@ sub statistics_fill_device($$$) {
   while (my $entry = readdir(DIR)) {
     next unless (-f "$dir/$entry");
     next unless ($entry =~ /^ttn\.$dev_id\.[0-9]+\.raw.log$/);
-    logging("DEBUG : logfile found: " . $entry) if defined $config{'statistics'}->{'debug'};
+    logging("DEBUG : logfile found: " . $entry) if defined $config{'statistics.debug'};
     push @logfiles, $entry;
   };
 
@@ -489,7 +490,7 @@ sub statistics_fill_device($$$) {
 
         $values{$timeReceived_ut}->{'box'} = $payload->{'box'};
 				$values{$timeReceived_ut}->{'sensor'} = $payload->{'sensor'};
-        logging("statistic: boxstatus " . "timeReceived_ut=" . $timeReceived_ut . " box=" . $payload->{'box'} . " sensor=" . $payload->{'sensor'}) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: boxstatus " . "timeReceived_ut=" . $timeReceived_ut . " box=" . $payload->{'box'} . " sensor=" . $payload->{'sensor'}) if defined $config{'statistics.debug'};
 			};
     };
     close LOGF;
@@ -527,7 +528,7 @@ sub statistics_fill_device($$$) {
             $box = "empty";
           };
         };
-        logging("statistic: threshold adjustment: sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: threshold adjustment: sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics.debug'};
       };
 
       # overwrite status
@@ -542,9 +543,9 @@ sub statistics_fill_device($$$) {
       };
 
       if (defined $config{"threshold." . $dev_id}) {
-        logging("statistic: value=" . $value . "(" . strftime("%Y-%m-%d %H:%M", gmtime($value)) . ") sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: value=" . $value . "(" . strftime("%Y-%m-%d %H:%M", gmtime($value)) . ") sensor=" . $values{$value}->{'sensor'} . " threshold=" . $config{"threshold." . $dev_id} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics.debug'};
       } else {
-        logging("statistic: value=" . $value . " sensor=" . $values{$value}->{'sensor'} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics'}->{'debug'};
+        logging("statistic: value=" . $value . " sensor=" . $values{$value}->{'sensor'} . " box_orig=" . $values{$value}->{'box'} . " box=". $box . " box_last=" . $box_last) if defined $config{'statistics.debug'};
       };
     };
 
@@ -564,25 +565,25 @@ sub statistics_fill_device($$$) {
 sub statistics_init_device($) {
   my $dev_id = $_[0];
 
-  logging("Called: init_device with dev_id=" . $dev_id) if defined $config{'statistics'}->{'debug'};
+  logging("Called: init_device with dev_id=" . $dev_id) if defined $config{'statistics.debug'};
 
   for my $type (@statistics) {
     my $file = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".xpm";
 
-    logging("DEBUG : check for file: " . $file) if defined $config{'statistics'}->{'debug'};
+    logging("DEBUG : check for file: " . $file) if defined $config{'statistics.debug'};
     if (! -e $file) {
-      logging("DEBUG : file missing, create now: " . $file) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file missing, create now: " . $file) if defined $config{'statistics.debug'};
       statistics_xpm_create($file, $type);
     } else {
-      logging("DEBUG : file already existing: " . $file) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file already existing: " . $file) if defined $config{'statistics.debug'};
     };
 
     my $value = statistics_get_infostore(undef, $file);
     if ($value == 0) {
-      logging("DEBUG : file already existing but empty: " . $file) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file already existing but empty: " . $file) if defined $config{'statistics.debug'};
       statistics_fill_device($dev_id, $file, $type);
     } else {
-      logging("DEBUG : file already existing and has value: " . $file . "#" . $value) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file already existing and has value: " . $file . "#" . $value) if defined $config{'statistics.debug'};
     };
   };
 };
@@ -597,7 +598,7 @@ sub statistics_store_data($$$) {
   my %values;
   my $value;
 
-  logging("statistics/store_data: called") if defined $config{'statistics'}->{'debug'};
+  logging("statistics/store_data: called") if defined $config{'statistics.debug'};
 
   my $payload;
   $payload = $content->{'uplink_message'}->{'decoded_payload'}; # v3 (default)
@@ -639,16 +640,16 @@ sub statistics_get_graphics($$) {
 
   my %html;
 
-  logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'statistics'}->{'debug'};
+  logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'statistics.debug'};
 
   for my $type (@statistics) {
     my $file = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".xpm";
 
-    logging("DEBUG : check for file: " . $file) if defined $config{'statistics'}->{'debug'};
+    logging("DEBUG : check for file: " . $file) if defined $config{'statistics.debug'};
     if (! -e $file) {
-      logging("DEBUG : file missing, skip: " . $file) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file missing, skip: " . $file) if defined $config{'statistics.debug'};
     } else {
-      logging("DEBUG : file existing, export graphics: " . $file) if defined $config{'statistics'}->{'debug'};
+      logging("DEBUG : file existing, export graphics: " . $file) if defined $config{'statistics.debug'};
       my $image = GD::Image->newFromXpm($file);
 
       my $xscale = $statistics_sizes{$type}->{'xscale'};
