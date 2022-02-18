@@ -2,7 +2,7 @@
 #
 # TheThingsNetwork HTTP letter box sensor RRD extension
 #
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -29,7 +29,7 @@
 # 20191214/bie: add "de" translation
 # 20200213/bie: improve layout for Mobile browers, fix RRD database definition to cover 1y instead of 12d
 # 20211030/bie: add support for v3 API
-# 20220218/bie: align config options
+# 20220218/bie: align config options, do not die in case of RRD updates happen too often
 
 use strict;
 use warnings;
@@ -187,9 +187,16 @@ sub rrd_update($$$) {
 
   RRDs::update($file, $rrd);
   my $ERR=RRDs::error;
-  die "ERROR : RRD::update problem " . $file .": $ERR\n" if $ERR;
-
-	logging("Updated RRD: " . $file) if defined $config{'rrd.debug'};
+  if ($ERR) {
+    if ($ERR =~ /minimum one second step/o) {
+      # only a transient issue
+      logging("Updated RRD: not possible: $ERR:" . $file) if defined $config{'rrd.debug'};
+    } else {
+      die "ERROR : RRD::update problem " . $file .": $ERR\n" if $ERR;
+    };
+  } else {
+	  logging("Updated RRD: " . $file) if defined $config{'rrd.debug'};
+  };
 };
 
 
