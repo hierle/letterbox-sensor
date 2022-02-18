@@ -130,6 +130,7 @@
 # 20211109/bie: fix payload validator for "tempC" (supporting also negative values)
 # 20220217/bie: fix "counter" related to v3 API
 # 20220217/bie: add support for Salted Hash provided by Authen::Passphrase::SaltedDigest in case of Crypt::SaltedHash (only available on EPEL7) is not installed/available
+# 20220218/bie: add missing 'init_device' hook for POST
 #
 # TODO:
 # - lock around file writes
@@ -855,6 +856,14 @@ sub req_post() {
   };
 
   logging("POST/main finished, call now modules") if ($config{'debug'} > 1);
+
+  ####################
+  for my $module (sort keys %hooks) {
+    if (defined $hooks{$module}->{'init_device'}) {
+      logging("POST/call now module/init_device: $module") if ($config{'debug'} > 1);
+      $hooks{$module}->{'init_device'}->($dev_id);
+    };
+  };
 
   ####################
   for my $module (sort keys %hooks) {
