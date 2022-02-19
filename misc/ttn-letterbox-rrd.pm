@@ -19,6 +19,9 @@
 # Optional configuration:
 #   - control debug
 #       rrd.debug=1
+#   - sensor-zoom-empty graph
+#       rrd.sensor-zoom-empty.min
+#       rrd.sensor-zoom-empty.max
 #
 # Changelog:
 # 20191110/bie: initial version
@@ -33,6 +36,7 @@
 # 20211030/bie: add support for v3 API
 # 20220218/bie: align config options, do not die in case of RRD updates happen too often
 # 20220219/bie: catch missing raw data entries and use "U" in RRD update
+# 20220219/bie: add additional graphics 'sensor-zoom-empty', insert sensor threshold line into graphics, code optimization
 
 use strict;
 use warnings;
@@ -52,7 +56,7 @@ our $mobile;
 ## prototyping
 sub rrd_init();
 sub rrd_init_device($);
-sub rrd_get_graphics($$);
+sub rrd_get_graphics($$$);
 sub rrd_store_data($$$);
 sub rrd_html_actions($);
 
@@ -84,7 +88,13 @@ my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD 
 my %rrd_config = (
   'sensor' => {
       'format' => '%d',
-      'color' => '#6FEF00'
+      'color' => '#6FEF00',
+      'color_threshold' => '#BF00BF'
+  },
+  'sensor-zoom-empty' => {
+      'format' => '%d',
+      'color' => '#6FEF00',
+      'color_threshold' => '#BF00BF'
   },
   'tempC' => {
       'format' => '%d',
@@ -333,9 +343,10 @@ sub rrd_store_data($$$) {
 
 
 ## get graphics
-sub rrd_get_graphics($$) {
+sub rrd_get_graphics($$$) {
   my $dev_id = $_[0];
   my $querystring_hp = $_[1];
+  my $dev_hash_p = $_[2];
 
   my %html;
 
@@ -349,7 +360,9 @@ sub rrd_get_graphics($$) {
   if (! -e $file) {
     logging("DEBUG : file missing, skip: " . $file) if defined $config{'rrd.debug'};
   } else {
-    for my $type (@rrd) {
+    my @rrd_types = @rrd;
+    push @rrd_types, "sensor-zoom-empty"; # extra graph
+    for my $type (@rrd_types) {
       logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd.debug'};
 
       my $output = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".png";
@@ -372,49 +385,55 @@ sub rrd_get_graphics($$) {
       my $font_title = "10:Courier";
       $font_title = "8:Helvetica" if ($mobile == 1);
 
-      if ($type eq "sensor") {
-        RRDs::graph($output,
-          "--title=" . $dev_id . ": " . translate($title),
-          "--vertical-label=" . $label,
-          "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
-          "--no-legend",
-          "--end=now",
-          "--start=" . $start,
-          "--width=" . $width,
-          "--height=" . $height,
-          "--x-grid=" . $xgrid,
-          "--border=0",
-          "--font-render-mode=mono",
-          "--font=TITLE:" . $font_title,
-          "--logarithmic",
-          "--units=si",
-          "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
-          "LINE1:" . $type . $color . ":" . $type,
-        );
-      } else {
-        RRDs::graph($output,
-          "--title=" . $dev_id . ": " . translate($title),
-          "--vertical-label=" . $label,
-          "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)),
-          "--no-legend",
-          "--end=now",
-          "--start=" . $start,
-          "--width=" . $width,
-          "--height=" . $height,
-          "--x-grid=" . $xgrid,
-          "--border=0",
-          "--font-render-mode=mono",
-          "--font=TITLE:" . $font_title,
-          "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE",
-          "LINE1:" . $type . $color . ":" . $type
-        );
+      my @rrd_opts;
 
-# not supported on EL7
-#          "--left-axis-format=\"" . $rrd_config{$type}->{'format'} . "\"",
-#          "--left-axis-format=\"" . $rrd_config{$type}->{'format'} . "\"",
-#          "--left-axis-formatter=numeric",
-#          "--left-axis-formatter=numeric",
+      # base options
+      push @rrd_opts, "--title=" . $dev_id . ": " . translate($title);
+      push @rrd_opts, "--vertical-label=" . $label;
+      push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
+      push @rrd_opts, "--end=now";
+      push @rrd_opts, "--start=" . $start;
+      push @rrd_opts, "--width=" . $width;
+      push @rrd_opts, "--height=" . $height;
+      push @rrd_opts, "--x-grid=" . $xgrid;
+      push @rrd_opts, "--border=0";
+      push @rrd_opts, "--font-render-mode=mono";
+      push @rrd_opts, "--font=TITLE:" . $font_title;
+
+      if (($type eq "sensor") || ($type eq "sensor-zoom-empty")) {
+        # sensor incl. threshold line
+        my $src = "sensor";
+
+        # retrieve threshold
+        my $threshold = $dev_hash_p->{'info'}->{'threshold'} - 0.5; # draw line below
+
+        my $color_threshold = $rrd_config{$type}->{'color_threshold'};
+
+        if ($type eq "sensor") {
+          push @rrd_opts, "--logarithmic";
+          push @rrd_opts, "--units=si";
+        } elsif ($type eq "sensor-zoom-empty") {
+          # upper/lower limit from config or default
+          my $min = $config{'rrd.sensor-zoom-empty.min'} || 0;
+          my $max = $config{'rrd.sensor-zoom-empty.max'} || 20;
+
+          push @rrd_opts, "--lower-limit=" . $min;
+          push @rrd_opts, "--upper-limit=" . $max;
+          push @rrd_opts, "--y-grid=1:2";
+          push @rrd_opts, "--rigid";
+        };
+
+        push @rrd_opts, "DEF:" . $src . "=" . $file . ":" . $src . ":AVERAGE";
+        push @rrd_opts, "LINE1:" . $src . $color . ":" . $src;
+        push @rrd_opts, "HRULE:" . $threshold . $color_threshold . ":threshold:dashes=3,3";
+      } else {
+        # default
+        push @rrd_opts, "--no-legend";
+        push @rrd_opts, "DEF:" . $type . "=" . $file . ":" . $type . ":AVERAGE";
+        push @rrd_opts, "LINE1:" . $type . $color . ":" . $type;
       };
+
+      RRDs::graph($output, @rrd_opts);
 
       my $ERR=RRDs::error;
       die "ERROR : RRD::graph problem " . $file . ": $ERR\n" if $ERR;
