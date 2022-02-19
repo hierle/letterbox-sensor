@@ -184,7 +184,7 @@ sub rrd_update($$$) {
     if (defined $$values_hp{$rrd_entry}) {
       push @data, $$values_hp{$rrd_entry};
     } else {
-      # catch undefined data, e.g. happens sometime on 'snr'
+      # catch undefined data, e.g. happens sometimes on 'snr'
       push @data, "U";
     };
   };
