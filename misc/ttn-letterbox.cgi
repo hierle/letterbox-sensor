@@ -132,6 +132,7 @@
 # 20220217/bie: add support for Salted Hash provided by Authen::Passphrase::SaltedDigest in case of Crypt::SaltedHash (only available on EPEL7) is not installed/available
 # 20220218/bie: add missing 'init_device' hook for POST
 # 20220219/bie: display '*undef* in case a raw data value is missing (e.g. sometimes 'snr' for unknown reason)
+# 20220219/bie: include device hash into module hook 'get_graphics' calls
 #
 # TODO:
 # - lock around file writes
@@ -1059,7 +1060,7 @@ sub req_get() {
     for my $module (sort keys %hooks) {
       if (defined $hooks{$module}->{'get_graphics'}) {
         if (defined $querystring{$module} && $querystring{$module} eq "on") {
-          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id, \%querystring);
+          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id, \%querystring, \%{$dev_hash{$dev_id}});
           for my $type (keys %graphics) {
             $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
           };
