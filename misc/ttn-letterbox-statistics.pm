@@ -39,6 +39,7 @@
 # 20200213/bie: improve layout for Mobile browers
 # 20211030/bie: add support for v3 API
 # 20220218/bie: align config options, cosmetics
+# 20220219/bie: align prototyping for hook 'get_graphics'
 
 use strict;
 use warnings;
@@ -59,7 +60,7 @@ our $mobile;
 ## prototyping
 sub statistics_init();
 sub statistics_init_device($);
-sub statistics_get_graphics($$);
+sub statistics_get_graphics($$$);
 sub statistics_store_data($$$);
 sub statistics_html_actions($);
 
@@ -641,7 +642,7 @@ sub statistics_store_data($$$) {
 };
 
 ## get graphics
-sub statistics_get_graphics($$) {
+sub statistics_get_graphics($$$) {
   my $dev_id = $_[0];
 
   my %html;
