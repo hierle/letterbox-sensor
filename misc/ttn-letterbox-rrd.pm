@@ -32,6 +32,7 @@
 # 20200213/bie: improve layout for Mobile browers, fix RRD database definition to cover 1y instead of 12d
 # 20211030/bie: add support for v3 API
 # 20220218/bie: align config options, do not die in case of RRD updates happen too often
+# 20220219/bie: catch missing raw data entries and use "U" in RRD update
 
 use strict;
 use warnings;
@@ -180,7 +181,12 @@ sub rrd_update($$$) {
   push @data, $timestamp;
 
   for my $rrd_entry (@rrd) {
-    push @data, $$values_hp{$rrd_entry};
+    if (defined $$values_hp{$rrd_entry}) {
+      push @data, $$values_hp{$rrd_entry};
+    } else {
+      # catch undefined data, e.g. happens sometime on 'snr'
+      push @data, "U";
+    };
   };
 
   my $rrd = join(":", @data);
