@@ -131,6 +131,8 @@
 # 20220217/bie: fix "counter" related to v3 API
 # 20220217/bie: add support for Salted Hash provided by Authen::Passphrase::SaltedDigest in case of Crypt::SaltedHash (only available on EPEL7) is not installed/available
 # 20220218/bie: add missing 'init_device' hook for POST
+# 20220219/bie: display '*undef* in case a raw data value is missing (e.g. sometimes 'snr' for unknown reason)
+# 20220219/bie: include device hash into module hook 'get_graphics' calls
 #
 # TODO:
 # - lock around file writes
@@ -1058,7 +1060,7 @@ sub req_get() {
     for my $module (sort keys %hooks) {
       if (defined $hooks{$module}->{'get_graphics'}) {
         if (defined $querystring{$module} && $querystring{$module} eq "on") {
-          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id, \%querystring);
+          my %graphics = $hooks{$module}->{'get_graphics'}->($dev_id, \%querystring, \%{$dev_hash{$dev_id}});
           for my $type (keys %graphics) {
             $dev_hash{$dev_id}->{'graphics'}->{$type} = $graphics{$type};
           };
@@ -1364,7 +1366,9 @@ sub letter($) {
         };
       };
 
-      $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $dev_hash{$dev_id}->{'info'}->{$info} . "</font></td>";
+      my $value = $dev_hash{$dev_id}->{'info'}->{$info};
+      $value = "*undef*" if (! defined $value);
+      $response .= "<td" . $bg . " align=\"right\"><font size=-1" . $fc . ">" . $value . "</font></td>";
 
       # check for optional graphics
       if (defined $dev_hash{$dev_id}->{'graphics'}) {
