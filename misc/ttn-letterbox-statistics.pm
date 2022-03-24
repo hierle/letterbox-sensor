@@ -40,6 +40,7 @@
 # 20211030/bie: add support for v3 API
 # 20220218/bie: align config options, cosmetics
 # 20220219/bie: align prototyping for hook 'get_graphics'
+# 20220324/bie: unconditionally log initial creation of XPM files
 
 use strict;
 use warnings;
@@ -579,7 +580,7 @@ sub statistics_init_device($) {
 
     logging("DEBUG : check for file: " . $file) if defined $config{'statistics.debug'};
     if (! -e $file) {
-      logging("DEBUG : file missing, create now: " . $file) if defined $config{'statistics.debug'};
+      logging("INFO  : file missing, create now: " . $file);
       statistics_xpm_create($file, $type);
     } else {
       logging("DEBUG : file already existing: " . $file) if defined $config{'statistics.debug'};
