@@ -9,8 +9,18 @@
 # Authors:  Dr. Peter Bieringer (bie)
 #
 # Required system features
-#   - "signal-cli" accessable via D-Bus interface, see https://ct.de/ywjz
-#     successfully tested with: https://github.com/AsamK/signal-cli/releases/tag/v0.7.4 on EL8
+#   - "signal-cli" accessable via D-Bus interface, see
+#       - https://ct.de/ywjz
+#       - https://github.com/AsamK/signal-cli/
+#       - https://github.com/AsamK/signal-cli/wiki/Provide-native-lib-for-libsignal
+#
+#     successfully tested:
+#       EL8 / 0.7.4:
+#         https://github.com/AsamK/signal-cli/releases/tag/v0.7.4
+#
+#       EL8 / 0.10.4.2:
+#         https://github.com/AsamK/signal-cli/releases/tag/v0.10.4.2
+#         https://github.com/exquo/signal-libs-build/releases/tag/libsignal-client_v0.14.0
 #
 # Required configuration:
 #   - enable sending messages (otherwise dry-run)
