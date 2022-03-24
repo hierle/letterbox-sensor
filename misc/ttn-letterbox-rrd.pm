@@ -160,17 +160,9 @@ sub rrd_create($) {
     "DS:rssi:GAUGE:3600:-300:0",
     "DS:snr:GAUGE:3600:-99:99",
     "RRA:AVERAGE:0.5:1:4800",
-    "RRA:MIN:0.5:1:4800",
-    "RRA:MAX:0.5:1:4800",
     "RRA:AVERAGE:0.5:10:24000",
-    "RRA:MIN:0.5:5:24000",
-    "RRA:MAX:0.5:5:24000",
     "RRA:AVERAGE:0.5:10:48000",
-    "RRA:MIN:0.5:10:48000",
-    "RRA:MAX:0.5:10:48000",
     "RRA:AVERAGE:0.5:1000:480000",
-    "RRA:MIN:0.5:1000:480000",
-    "RRA:MAX:0.5:1000:480000"
   );
 
   my $ERR=RRDs::error;
