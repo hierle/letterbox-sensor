@@ -37,6 +37,7 @@
 # 20220218/bie: align config options, do not die in case of RRD updates happen too often
 # 20220219/bie: catch missing raw data entries and use "U" in RRD update
 # 20220219/bie: add additional graphics 'sensor-zoom-empty', insert sensor threshold line into graphics, code optimization
+# 20220324/bie: remove MIN/MAX from RRD because not used (saves disk space), unconditionally log initial creation of RRD file, change sequence of graphs
 
 use strict;
 use warnings;
@@ -160,17 +161,9 @@ sub rrd_create($) {
     "DS:rssi:GAUGE:3600:-300:0",
     "DS:snr:GAUGE:3600:-99:99",
     "RRA:AVERAGE:0.5:1:4800",
-    "RRA:MIN:0.5:1:4800",
-    "RRA:MAX:0.5:1:4800",
     "RRA:AVERAGE:0.5:10:24000",
-    "RRA:MIN:0.5:5:24000",
-    "RRA:MAX:0.5:5:24000",
     "RRA:AVERAGE:0.5:10:48000",
-    "RRA:MIN:0.5:10:48000",
-    "RRA:MAX:0.5:10:48000",
     "RRA:AVERAGE:0.5:1000:480000",
-    "RRA:MIN:0.5:1000:480000",
-    "RRA:MAX:0.5:1000:480000"
   );
 
   my $ERR=RRDs::error;
@@ -300,7 +293,7 @@ sub rrd_init_device($) {
 
   logging("DEBUG : check for file: " . $file) if defined $config{'rrd.debug'};
   if (! -e $file) {
-    logging("DEBUG : file missing, create now: " . $file) if defined $config{'rrd.debug'};
+    logging("INFO  : file missing, create now: " . $file);
     rrd_create($file);
     rrd_fill_device($dev_id, $file);
   } else {
