@@ -38,6 +38,7 @@
 # 20220219/bie: catch missing raw data entries and use "U" in RRD update
 # 20220219/bie: add additional graphics 'sensor-zoom-empty', insert sensor threshold line into graphics, code optimization
 # 20220324/bie: remove MIN/MAX from RRD because not used (saves disk space), unconditionally log initial creation of RRD file
+# 20220326/bie: adjust RRD definition (saves disk space)
 
 use strict;
 use warnings;
@@ -153,17 +154,19 @@ sub rrd_create($) {
 
   # 86400 s * 365 d / 300 s = 105120 measurements
   RRDs::create($file,
-    "--step=300",
-    "--start=1571200000",
-    "DS:sensor:GAUGE:3600:0:U",
-    "DS:voltage:GAUGE:3600:0:4",
-    "DS:tempC:GAUGE:3600:-50:150",
-    "DS:rssi:GAUGE:3600:-300:0",
-    "DS:snr:GAUGE:3600:-99:99",
-    "RRA:AVERAGE:0.5:1:4800",
-    "RRA:AVERAGE:0.5:10:24000",
-    "RRA:AVERAGE:0.5:10:48000",
-    "RRA:AVERAGE:0.5:1000:480000",
+    "--step=300",                   # 5 min (300) granularity
+    "--start=1571200000",           # ignore data before 2019-10-16 06:26:40 CEST
+    # heartbeat is 40 min (2400), sensor sends every 30 min + 10 min drift window
+    "DS:sensor:GAUGE:2400:0:U",
+    "DS:voltage:GAUGE:2400:0:4",
+    "DS:tempC:GAUGE:2400:-50:150",
+    "DS:rssi:GAUGE:2400:-300:0",
+    "DS:snr:GAUGE:2400:-99:99",
+    # XFF=0.5
+    "RRA:AVERAGE:0.5:1:864",        # steps=1  : don't calculate any average, rows=864   : keep 3 days   (3*86400/300)
+    "RRA:AVERAGE:0.5:3:6048",       # steps=3  : calculate 15 min average   , rows=6048  : keep 3 weeks  (3*7*86400/300)
+    "RRA:AVERAGE:0.5:24:25920",     # steps=24 : calculate 2 hour average   , rows=25920 : keep 3 months (3*30*86400/300)
+    "RRA:AVERAGE:0.5:288:315360",   # steps=288: calculate 1 day average    , rows=315360: keep 3 years  (3*365*86400/300)
   );
 
   my $ERR=RRDs::error;
