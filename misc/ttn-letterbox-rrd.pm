@@ -123,8 +123,8 @@ my %rrd_range = (
   'day' => {
       'label' => 'hour-of-day',
       'start' => 'end-24h',
-      'xgrid' => "HOUR:1:HOUR:6:HOUR:2:0:%H",
-      'xgrid_shift' => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
+      'xgrid'        => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
+      'xgrid_shift'  => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
       'xgrid_mobile' => "HOUR:1:HOUR:6:HOUR:4:0:%H",
       'unit'  => 'h',
       'step'  => '24',
@@ -132,8 +132,8 @@ my %rrd_range = (
   'week' => {
       'label' => 'day-of-month',
       'start' => 'end-7d',
-      'xgrid' => "HOUR:6:DAY:1:DAY:1:86400:%d",
-      'xgrid_shift' => "HOUR:6:DAY:1:DAY:1:86400:%d",
+      'xgrid'        => "HOUR:6:DAY:1:DAY:1:86400:%d\n%a",
+      'xgrid_shift'  => "HOUR:6:DAY:1:DAY:1:86400:%d\n%a",
       'xgrid_mobile' => "HOUR:6:DAY:1:DAY:1:86400:%d",
       'unit'  => 'd',
       'step'  => '7',
@@ -141,8 +141,8 @@ my %rrd_range = (
   'month' => {
       'label' => 'week-of-year',
       'start' => 'end-1M',
-      'xgrid' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
-      'xgrid_shift' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
+      'xgrid'        => "DAY:1:WEEK:1:DAY:7:0:CW %V",
+      'xgrid_shift'  => "DAY:1:WEEK:1:DAY:7:0:CW %V",
       'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
       'unit'  => 'M',
       'step'  => '1',
@@ -150,8 +150,8 @@ my %rrd_range = (
   'year' => {
       'label' => 'month-of-year',
       'start' => 'end-1y',
-      'xgrid' => "MONTH:1:MONTH:1:MONTH:1:0:%m",
-      'xgrid_shift' => "MONTH:1:MONTH:1:MONTH:3:0:%Y-%m",
+      'xgrid'        => "MONTH:1:MONTH:1:MONTH:1:0:%m",
+      'xgrid_shift'  => "MONTH:1:MONTH:1:MONTH:2:0: %m\n%Y",
       'xgrid_mobile' => "MONTH:1:MONTH:1:MONTH:2:0:%m",
       'unit'  => 'y',
       'step'  => '1',
@@ -403,15 +403,42 @@ sub rrd_get_graphics($$$) {
           # shift only
           $minus_end   = $step * (- $querystring_hp->{'rrdShift'});
           $minus_start = $minus_end + $step;
+
+          logging("DEBUG : rrd_get_graphics: minus_start=" . $minus_start . " minus_end=" . $minus_end . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'}) if defined $config{'rrd.debug'};
+
+          $end   = 'now-' . $minus_end   . $rrd_range{$rrdRange}->{'unit'};
+          $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
+        } elsif ($querystring_hp->{'rrdShift'} == 0) {
+          # zoom only
+          if ($querystring_hp->{'rrdZoom'} < 0) {
+            # zoom only (larger time window)
+            my $zoom = (- $querystring_hp->{'rrdZoom'}) + 1;
+            $minus_start = $zoom * $step;
+            $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
+
+            $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
+
+            # adjust x-grid
+            # 'xgrid'        => "HOUR:1:HOUR:6:HOUR:2:0:%H"
+            $xgrid =~ /^(\S+:\d+:\S+:\d+:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph LST
+            my $LST = $2 * $zoom; # adjust LST
+            $xgrid = $1 . $LST . $3; # implant adjusted LST
+
+            logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
+          } elsif ($querystring_hp->{'rrdZoom'} > 0) {
+            # zoom only (larger time window)
+            my $zoom = $querystring_hp->{'rrdZoom'} + 1;
+            $minus_start = $step / $zoom;
+            $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
+
+            $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
+
+            logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
+          };
         } else {
           # shift + zoom
-
         }; 
 
-        logging("DEBUG : rrd_get_graphics: minus_start=" . $minus_start . " minus_end=" . $minus_end . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'}) if defined $config{'rrd.debug'};
-        $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
-        $end   = 'now-' . $minus_end   . $rrd_range{$rrdRange}->{'unit'};
-        $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
       };
 
       my $font_title = "10:Courier";
@@ -422,7 +449,8 @@ sub rrd_get_graphics($$$) {
       # base options
       push @rrd_opts, "--title=" . $dev_id . ": " . translate($title);
       push @rrd_opts, "--vertical-label=" . $label;
-      push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
+      #push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
+      push @rrd_opts, "--watermark= "; # generate an additional empty line in RRD graphics
       push @rrd_opts, "--end=" . $end;
       push @rrd_opts, "--start=" . $start;
       push @rrd_opts, "--width=" . $width;
@@ -455,6 +483,7 @@ sub rrd_get_graphics($$$) {
           push @rrd_opts, "--rigid";
         };
 
+        push @rrd_opts, "--force-rules-legend";
         push @rrd_opts, "DEF:" . $src . "=" . $file . ":" . $src . ":AVERAGE";
         push @rrd_opts, "LINE1:" . $src . $color . ":" . $src;
         push @rrd_opts, "HRULE:" . $threshold . $color_threshold . ":threshold:dashes=3,3";
@@ -505,8 +534,8 @@ sub rrd_html_actions($) {
     $querystring_hp->{'rrdShift'} = "0";
   };
 
-  # rrdZoom=(4|3|2|1|0|-1|-2|-3|-4)
-  if (! defined $querystring_hp->{'rrdZoom'} || $querystring_hp->{'rrdZoom'} !~ /^(0|([-]?[1-4]))$/o) {
+  # rrdZoom=(3|2|1|0|-1|-2|-3)
+  if (! defined $querystring_hp->{'rrdZoom'} || $querystring_hp->{'rrdZoom'} !~ /^(0|([-]?[1-3]))$/o) {
     $querystring_hp->{'rrdZoom'} = "0";
   };
 
@@ -616,13 +645,13 @@ sub rrd_html_actions($) {
       $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'};
 
       if ($button eq "+") {
-        if ($querystring_hp->{'rrdZoom'} >= 4) {
+        if ($querystring_hp->{'rrdZoom'} >= 3) {
           $toggle_color = "#E02020";
         } else {
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} + 1;
         };
       } elsif ($button eq "-") {
-        if ($querystring_hp->{'rrdZoom'} <= -4) {
+        if ($querystring_hp->{'rrdZoom'} <= -3) {
           $toggle_color = "#E02020";
         } else {
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} - 1;
