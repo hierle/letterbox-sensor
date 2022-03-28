@@ -119,42 +119,39 @@ my %rrd_config = (
 
 
 ## ranges
+# xgrid_offset: offset for MST/LST calculation on zoom/shrink
 my %rrd_range = (
   'day' => {
       'label' => 'hour-of-day',
-      'start' => 'end-24h',
       'xgrid'        => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
-      'xgrid_shift'  => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
       'xgrid_mobile' => "HOUR:1:HOUR:6:HOUR:4:0:%H",
       'unit'  => 'h',
       'step'  => '24',
+      'xgrid_offset'  => 0,
   },
   'week' => {
       'label' => 'day-of-month',
-      'start' => 'end-7d',
-      'xgrid'        => "HOUR:6:DAY:1:DAY:1:86400:%d\n%a",
-      'xgrid_shift'  => "HOUR:6:DAY:1:DAY:1:86400:%d\n%a",
+      'xgrid'        => "HOUR:6:DAY:1:DAY:1:86400:%m-%d\n%a",
       'xgrid_mobile' => "HOUR:6:DAY:1:DAY:1:86400:%d",
       'unit'  => 'd',
       'step'  => '7',
+      'xgrid_offset'  => 0,
   },
   'month' => {
       'label' => 'week-of-year',
-      'start' => 'end-1M',
-      'xgrid'        => "DAY:1:WEEK:1:DAY:7:0:CW %V",
-      'xgrid_shift'  => "DAY:1:WEEK:1:DAY:7:0:CW %V",
-      'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
-      'unit'  => 'M',
-      'step'  => '1',
+      'xgrid'        => "DAY:1:WEEK:1:DAY:7:0:%V\nCW",
+      'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:%V",
+      'unit'  => 'd',
+      'step'  => '36',
+      'xgrid_offset'  => 1,
   },
   'year' => {
       'label' => 'month-of-year',
-      'start' => 'end-1y',
-      'xgrid'        => "MONTH:1:MONTH:1:MONTH:1:0:%m",
-      'xgrid_shift'  => "MONTH:1:MONTH:1:MONTH:2:0: %m\n%Y",
+      'xgrid'        => "MONTH:1:MONTH:1:MONTH:1:0:%m\n%y",
       'xgrid_mobile' => "MONTH:1:MONTH:1:MONTH:2:0:%m",
-      'unit'  => 'y',
-      'step'  => '1',
+      'unit'  => 'd',
+      'step'  => '372',
+      'xgrid_offset'  => 1,
   }
 );
 
@@ -380,8 +377,6 @@ sub rrd_get_graphics($$$) {
 
       my $width = 260;
       my $height = 80;
-      my $start = $rrd_range{$rrdRange}->{'start'};
-      my $end   = "now";
       my $xgrid = $rrd_range{$rrdRange}->{'xgrid'};
       my $title = $rrd_range{$rrdRange}->{'label'};
       my $label = $type;
@@ -392,53 +387,71 @@ sub rrd_get_graphics($$$) {
         $xgrid = $rrd_range{$rrdRange}->{'xgrid_mobile'};
       };
 
+      # default
+      my $start = "now-" . $rrd_range{$rrdRange}->{'step'} . $rrd_range{$rrdRange}->{'unit'};
+      my $end   = "now";
+
       # apply shift/zoom
-      if (($querystring_hp->{'rrdShift'} < 0) || ($querystring_hp->{'rrdZoom'} != 0)) {
+      if (($querystring_hp->{'rrdShift'} != 0) || ($querystring_hp->{'rrdZoom'} != 0)) {
         my $step = $rrd_range{$rrdRange}->{'step'};
+        my $minus_start = $step;
+        my $minus_end   = 0;
+        my $zoom;
 
-        my $minus_start;
-        my $minus_end;
+        if ($querystring_hp->{'rrdZoom'} < 0) {
+          # zoom only (larger time window)
+          $zoom = (- $querystring_hp->{'rrdZoom'}) + 1;
+          $minus_start = $zoom * $step;
 
-        if ($querystring_hp->{'rrdZoom'} == 0) {
-          # shift only
-          $minus_end   = $step * (- $querystring_hp->{'rrdShift'});
-          $minus_start = $minus_end + $step;
+          # adjust x-grid
+          $xgrid =~ /^(\S+:\d+:\S+:)(\d+)(:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph MST/LST
+          my $MST = - int((- $2) * ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust MST
+          my $LST = - int((- $4) * ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust LST
+          $MST = 1 if ($MST < 1);
+          $LST = 1 if ($LST < 1);
+          $xgrid = $1 . $MST . $3 . $LST . $5; # implant adjusted LST
 
-          logging("DEBUG : rrd_get_graphics: minus_start=" . $minus_start . " minus_end=" . $minus_end . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'}) if defined $config{'rrd.debug'};
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step * $zoom);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step * $zoom);
+          };
 
-          $end   = 'now-' . $minus_end   . $rrd_range{$rrdRange}->{'unit'};
-          $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
-        } elsif ($querystring_hp->{'rrdShift'} == 0) {
-          # zoom only
-          if ($querystring_hp->{'rrdZoom'} < 0) {
-            # zoom only (larger time window)
-            my $zoom = (- $querystring_hp->{'rrdZoom'}) + 1;
-            $minus_start = $zoom * $step;
-            $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
+        } elsif ($querystring_hp->{'rrdZoom'} > 0) {
+          # shrink only (smaller time window)
+          $zoom = $querystring_hp->{'rrdZoom'} + 1;
 
-            $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
+          $minus_start = - int((- $step) / $zoom); # ceil function
 
-            # adjust x-grid
-            # 'xgrid'        => "HOUR:1:HOUR:6:HOUR:2:0:%H"
-            $xgrid =~ /^(\S+:\d+:\S+:\d+:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph LST
-            my $LST = $2 * $zoom; # adjust LST
-            $xgrid = $1 . $LST . $3; # implant adjusted LST
+          $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
 
-            logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
-          } elsif ($querystring_hp->{'rrdZoom'} > 0) {
-            # zoom only (larger time window)
-            my $zoom = $querystring_hp->{'rrdZoom'} + 1;
-            $minus_start = $step / $zoom;
-            $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
+          # adjust x-grid
+          $xgrid =~ /^(\S+:\d+:\S+:)(\d+)(:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph MST/LST
+          my $MST = - int((- $2) / ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust MST
+          my $LST = - int((- $4) / ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust LST
+          $MST = 1 if ($MST < 1);
+          $LST = 1 if ($LST < 1);
+          $xgrid = $1 . $MST . $3 . $LST . $5; # implant adjusted LST
 
-            $xgrid = $rrd_range{$rrdRange}->{'xgrid_shift'};
-
-            logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
+          # apply shift
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step / $zoom);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step / $zoom);
           };
         } else {
-          # shift + zoom
-        }; 
+          $zoom = 0;
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step);
+          };
+        };
 
+        $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'} if ($minus_start > 0); 
+        $end   = 'now-' . $minus_end   . $rrd_range{$rrdRange}->{'unit'} if ($minus_end > 0);
+
+        logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " rrdZoom=" . $querystring_hp->{'rrdZoom'} . " start=" . $start . " end=" . $end . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
       };
 
       my $font_title = "10:Courier";
@@ -449,8 +462,6 @@ sub rrd_get_graphics($$$) {
       # base options
       push @rrd_opts, "--title=" . $dev_id . ": " . translate($title);
       push @rrd_opts, "--vertical-label=" . $label;
-      #push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
-      push @rrd_opts, "--watermark= "; # generate an additional empty line in RRD graphics
       push @rrd_opts, "--end=" . $end;
       push @rrd_opts, "--start=" . $start;
       push @rrd_opts, "--width=" . $width;
@@ -459,6 +470,10 @@ sub rrd_get_graphics($$$) {
       push @rrd_opts, "--border=0";
       push @rrd_opts, "--font-render-mode=mono";
       push @rrd_opts, "--font=TITLE:" . $font_title;
+
+      # watermark shifted to upper region of graph
+      my $watermark_lines = $height / 7;
+      push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time)) . ("\n" x $watermark_lines);
 
       if (($type eq "sensor") || ($type eq "sensor-zoom-empty")) {
         # sensor incl. threshold line
@@ -483,7 +498,7 @@ sub rrd_get_graphics($$$) {
           push @rrd_opts, "--rigid";
         };
 
-        push @rrd_opts, "--force-rules-legend";
+        push @rrd_opts, "--no-legend"; # legend overlaps with 2-line x-axis labels :-(
         push @rrd_opts, "DEF:" . $src . "=" . $file . ":" . $src . ":AVERAGE";
         push @rrd_opts, "LINE1:" . $src . $color . ":" . $src;
         push @rrd_opts, "HRULE:" . $threshold . $color_threshold . ":threshold:dashes=3,3";
@@ -594,6 +609,7 @@ sub rrd_html_actions($) {
     $response .= "   <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
     
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
+    $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
     $response .= "  <tr>\n";
     $response .= "  <td>Shift</td>\n";
@@ -635,6 +651,7 @@ sub rrd_html_actions($) {
     $response .= "  </tr>\n";
 
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
+    $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
     $response .= "  <tr>\n";
     $response .= "  <td>Zoom</td>\n";
