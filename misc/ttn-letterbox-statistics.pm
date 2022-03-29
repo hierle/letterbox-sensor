@@ -41,6 +41,7 @@
 # 20220218/bie: align config options, cosmetics
 # 20220219/bie: align prototyping for hook 'get_graphics'
 # 20220324/bie: unconditionally log initial creation of XPM files
+# 20220329/bie: change timestamp from UTC to localtime
 
 use strict;
 use warnings;
@@ -697,7 +698,7 @@ sub statistics_get_graphics($$$) {
       $image_scaled->string(gdTinyFont, $dborder + $textsize, 1, $text, $grey);
 
       # y-top
-      $text = strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
+      $text = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
       $image_scaled->stringUp(gdTinyFont, 1, length($text) * $textsize + $border + 3, $text, $grey);
 
       if ($mobile == 1 && $type eq "receivedstatus") {
