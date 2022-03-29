@@ -571,10 +571,21 @@ sub rrd_html_actions($) {
     $querystring_hp->{'rrdZoom'} = "0";
   };
 
-  my $rrdShiftLimit = - ($querystring_hp->{'rrdZoom'} + 1) * 4 - 1;
+  my $rrdShiftLimit;
+
+  if ($querystring_hp->{'rrdZoom'} >= 0) {
+    $rrdShiftLimit = - ($querystring_hp->{'rrdZoom'} + 1) * 4 - 1;
+  } elsif ($querystring_hp->{'rrdZoom'} < 0) {
+    $rrdShiftLimit = ceil(4 / ($querystring_hp->{'rrdZoom'} - 1)) + 1;
+  };
 
   # limit rrdShift depending on rrdZoom
   if (($querystring_hp->{'rrdZoom'} > 0) && ($querystring_hp->{'rrdShift'} < 0)) {
+    if ($querystring_hp->{'rrdShift'} < $rrdShiftLimit) {
+      # limit
+      $querystring_hp->{'rrdShift'} = $rrdShiftLimit;
+    };
+  } elsif (($querystring_hp->{'rrdZoom'} < 0) && ($querystring_hp->{'rrdShift'} < 0)) {
     if ($querystring_hp->{'rrdShift'} < $rrdShiftLimit) {
       # limit
       $querystring_hp->{'rrdShift'} = $rrdShiftLimit;
@@ -641,7 +652,7 @@ sub rrd_html_actions($) {
     $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
     $response .= "  <tr>\n";
-    $response .= "  <td>Shift</td>\n";
+    $response .= "  <td><font size=\"-1\">Shift</font></td>\n";
     for my $button ("<", "value", ">") {
       $toggle_color = "#40BFFF";
       $text_color = "#000000";
@@ -650,19 +661,21 @@ sub rrd_html_actions($) {
 
       if ($button eq "<") {
         if ($querystring_hp->{'rrdShift'} <= $rrdShiftLimit) {
-          $toggle_color = "#E02020";
+          $toggle_color = "#202020";
         } else {
+          $toggle_color = "#80A0E0";
           $querystring->{'rrdShift'} = ceil($querystring_hp->{'rrdShift'} - 1);
         };
       } elsif ($button eq ">") {
         if ($querystring_hp->{'rrdShift'} >= 0) {
-          $toggle_color = "#E02020";
+          $toggle_color = "#202020";
         } else {
+          $toggle_color = "#80E0A0";
           $querystring->{'rrdShift'} = floor($querystring_hp->{'rrdShift'} + 1);
         };
       } else {
         # display only the value
-        $response .= "  <td align=\"right\">" . $querystring_hp->{'rrdShift'} . "</td>\n";
+        $response .= "  <td align=\"right\"><font size=\"-1\">" . $querystring_hp->{'rrdShift'} . "</font></td>\n";
         next;
       };
 
@@ -682,7 +695,7 @@ sub rrd_html_actions($) {
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
     $response .= "  <tr>\n";
-    $response .= "  <td>Zoom</td>\n";
+    $response .= "  <td><font size=\"-1\">Zoom</font></td>\n";
     for my $button ("-", "value", "+") {
       $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
       $toggle_color = "#40BFFF";
@@ -694,31 +707,40 @@ sub rrd_html_actions($) {
 
       if (($querystring_hp->{'rrdShift'} < 0) && ($querystring_hp->{'rrdZoom'} >= 0)) {
         $rrdShiftAdjust = floor(($querystring_hp->{'rrdShift'} - 1) / ($querystring_hp->{'rrdZoom'} + 1) * 10) / 10;
+      } elsif (($querystring_hp->{'rrdShift'} < 0) && ($querystring_hp->{'rrdZoom'} < 0)) {
+        $rrdShiftAdjust = - floor(($querystring_hp->{'rrdShift'} - 1) / ($querystring_hp->{'rrdZoom'}) * 10) / 10;
       };
 
       if ($button eq "-") {
         if ($querystring_hp->{'rrdZoom'} <= -3) {
-          $toggle_color = "#E02020";
+          $toggle_color = "#202020";
         } else {
+          $toggle_color = "#E00020";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} - 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} - $rrdShiftAdjust;
         };
       } elsif ($button eq "+") {
         if ($querystring_hp->{'rrdZoom'} >= 3) {
-          $toggle_color = "#E02020";
+          $toggle_color = "#202020";
         } else {
+          $toggle_color = "#00E020";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} + 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} + $rrdShiftAdjust;
         };
       } else {
         # display only the value
-        $response .= "  <td align=\"right\">";
+        $response .= "  <td align=\"right\"><font size=\"-1\">";
         if ($querystring_hp->{'rrdZoom'} >= 0) {
           $response .= $querystring_hp->{'rrdZoom'} + 1;
         } else {
-          $response .= "1/" . (- $querystring_hp->{'rrdZoom'} + 1);
+          $response .= "&frac12;" if ($querystring_hp->{'rrdZoom'} == -1);
+          $response .= "&frac13;" if ($querystring_hp->{'rrdZoom'} == -2);
+          $response .= "&frac14;" if ($querystring_hp->{'rrdZoom'} == -3);
+
+#          $response .= $querystring_hp->{'rrdZoom'} + 1;
+#          $response .= "1/" . (- $querystring_hp->{'rrdZoom'} + 1);
         };
-        $response .= "x</td>\n";
+        $response .= "</font></td>\n";
         next;
       };
 
