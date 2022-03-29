@@ -1190,7 +1190,7 @@ sub letter($) {
   my $button_size;
 
   ## button row #1
-  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #1 -->\n";
   $response .= " <tr>\n";
 
   # print reload button
@@ -1247,7 +1247,7 @@ sub letter($) {
   $response .= "</table>\n";
 
   ## button row #2
-  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #2 -->\n";
   $response .= " <tr>\n";
 
   # html action per module
@@ -1258,9 +1258,9 @@ sub letter($) {
   };
 
   $response .= " </tr>\n";
-
   $response .= "</table>\n";
 
+  ## autorefresh
   if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
     $response .= "<br />\n";
   } elsif (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
