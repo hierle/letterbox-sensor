@@ -621,7 +621,15 @@ sub rrd_html_actions($) {
 
   # timerange buttons
   if ($querystring_hp->{'rrd'} eq "on") {
+    # create table around
+    $response .= "  <td><!-- timerange+shift+zoom -->\n";
+    $response .= "   <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
+    $response .= "    <tr><!-- timerange -->\n";
+
     $querystring = { %$querystring_hp }; # copy for form
+
+    $button_size = "width:60px;height:25px;";
+    $button_size = "width:50px;height:40px;" if ($mobile == 1);
 
     for my $rrdRange ("day", "week", "month", "year") {
       if ($querystring_hp->{'rrdRange'} eq $rrdRange) {
@@ -632,9 +640,9 @@ sub rrd_html_actions($) {
 
       $querystring->{'rrdRange'} = $rrdRange;
 
-      $response .= "  <td>\n";
+      $response .= "  <td colspan=\"2\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . translate($rrdRange) . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:40px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . translate($rrdRange) . "\" style=\"background-color:" . $toggle_color . ";$button_size\">\n";
       for my $key (sort keys %$querystring) {
         $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
@@ -643,17 +651,19 @@ sub rrd_html_actions($) {
       $response .= "  </td>\n";
     };
 
-    $response .= "  <td>\n";
-    $response .= "   <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
-   
- 
+    $response .= "    </tr><!-- timerange -->\n";
+
+    unless ($mobile == 1) {
+
+    $response .= "    <tr>\n";
+
     ## Shift
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
     $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
-    $response .= "  <tr>\n";
-    $response .= "  <td><font size=\"-1\">Shift</font></td>\n";
-    for my $button ("<", "value", ">") {
+    $response .= "  <td align=\"right\"><font size=\"-1\">Shift</font></td>\n";
+
+    for my $button ("value", "<", ">") {
       $toggle_color = "#40BFFF";
       $text_color = "#000000";
 
@@ -679,24 +689,22 @@ sub rrd_html_actions($) {
         next;
       };
 
-      $response .= "  <td>\n";
+      $response .= "  <td align=\"center\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:20px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:25px;\">\n";
       for my $key (sort keys %$querystring) {
         $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
       $response .= "   </form>\n";
       $response .= "  </td>\n";
     };
-    $response .= "  </tr>\n";
-
 
     ## Zoom
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
-    $response .= "  <tr>\n";
-    $response .= "  <td><font size=\"-1\">Zoom</font></td>\n";
-    for my $button ("-", "value", "+") {
+    $response .= "  <td align=\"right\"><font size=\"-1\">Zoom</font></td>\n";
+
+    for my $button ("value", "-", "+") {
       $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
       $toggle_color = "#40BFFF";
       $text_color = "#000000";
@@ -731,7 +739,7 @@ sub rrd_html_actions($) {
         # display only the value
         $response .= "  <td align=\"right\"><font size=\"-1\">";
         if ($querystring_hp->{'rrdZoom'} >= 0) {
-          $response .= $querystring_hp->{'rrdZoom'} + 1;
+          $response .= $querystring_hp->{'rrdZoom'} + 1 . "x";
         } else {
           $response .= "&frac12;" if ($querystring_hp->{'rrdZoom'} == -1);
           $response .= "&frac13;" if ($querystring_hp->{'rrdZoom'} == -2);
@@ -744,20 +752,21 @@ sub rrd_html_actions($) {
         next;
       };
 
-      $response .= "  <td>\n";
+      $response .= "  <td align=\"center\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:20px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:25px;\">\n";
       for my $key (sort keys %$querystring) {
         $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
       $response .= "   </form>\n";
       $response .= "  </td>\n";
     };
-    $response .= "  </tr>\n";
+    $response .= "    </tr>\n";
+
+    }; # unless ($mobile == 1)
 
     $response .= "   </table>\n";
-    $response .= "  </td>\n";
-
+    $response .= "  </td><!-- timerange+shift+zoom -->\n";
   };
 
   return $response;
