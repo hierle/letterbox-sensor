@@ -133,6 +133,7 @@
 # 20220218/bie: add missing 'init_device' hook for POST
 # 20220219/bie: display '*undef* in case a raw data value is missing (e.g. sometimes 'snr' for unknown reason)
 # 20220219/bie: include device hash into module hook 'get_graphics' calls
+# 20220331/bie: define button height global, align button sizes
 #
 # TODO:
 # - lock around file writes
@@ -206,6 +207,8 @@ our %config = (
   'autorefresh'   => 900,   # (seconds) of HTML autorefreshing
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
+  'button.height' => 50,    # button height in px
+  'button.width'  => 120,   # button width  in px
   'debugmask'     => 0,     # debug mask (0x1: log raw JSON/POST)
   'debug'         => 0      # debug
 );
@@ -1155,7 +1158,8 @@ sub response($$;$$$$$) {
     print " <META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">\n";
     print " <META HTTP-EQUIV=\"EXPIRES\" CONTENT=\"0\">\n";
     print "$header";
-    print "</head>\n<body>\n";
+    print "</head>\n";
+    print "<body style=\"font-family: sans-serif\">\n";
     print "<font size=\"+1\">TTN " . translate("Letterbox Sensor Status") . "</font>\n";
     print "<br />\n";
     print "<font size=\"-1\">" . translate("hosted on") . " " . $ENV{'SERVER_NAME'} . "</font>\n";
@@ -1187,7 +1191,8 @@ sub letter($) {
   my $querystring_copy;
   my $toggle_color;
 
-  my $button_size;
+  my $button_size   = "width:" . $config{'button.width'} . "px;height:" . $config{'button.height'} . "px;";
+  my $button_size13 = "width:" . int($config{'button.width'} * 1.3) . "px;height:" . $config{'button.height'} . "px;";
 
   ## button row #1
   $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #1 -->\n";
@@ -1196,8 +1201,6 @@ sub letter($) {
   # print reload button
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $button_size = "width:150px;height:50px;";
-  $button_size = "width:100px;height:50px;" if ($mobile == 1);
   $response .= "    <input type=\"submit\" value=\"" . translate("Reload") . "\" style=\"background-color:#DEB887;" . $button_size . "\">\n";
   for my $key (sort keys %querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
@@ -1217,7 +1220,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";width:150px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size13 . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
@@ -1236,7 +1239,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
