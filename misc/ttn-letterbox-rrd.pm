@@ -121,7 +121,7 @@ my %rrd_config = (
 
 
 ## ranges
-# xgrid_offset: offset for MST/LST calculation on zoom/shrink
+# xgrid_offset: offset for GST/MST/LST calculation on zoom/shrink
 my %rrd_range = (
   'day' => {
       'label' => 'hour-of-day',
@@ -565,7 +565,7 @@ sub rrd_html_actions($) {
     $querystring_hp->{'rrd'} = "off";
   };
 
-  # rrdShift=(0|-1|-2|-3) * rrdZoom
+  # rrdShift=-[0-9]+
   if (! defined $querystring_hp->{'rrdShift'} || $querystring_hp->{'rrdShift'} !~ /^(0|(\-[0-9.]+))$/o) {
     $querystring_hp->{'rrdShift'} = "0";
   };
