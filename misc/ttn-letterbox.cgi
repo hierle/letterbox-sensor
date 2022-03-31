@@ -1169,10 +1169,10 @@ sub response($$;$$$$$) {
 
     if (defined $refresh_delay && ! defined $quiet) {
       print "<br />\n";
-      print "<font size=\"-1\">" . translate("redirect in") . " " . $refresh_delay . " " . translate("seconds") . "</font>";
+      print "<font size=\"-1\">" . translate("redirect in") . " " . $refresh_delay . " " . translate("seconds") . "</font>\n";
     };
 
-    print "\n</body>\n</html>\n";
+    print "</body>\n</html>\n";
   };
 };
 
