@@ -40,6 +40,7 @@
 # 20220324/bie: remove MIN/MAX from RRD because not used (saves disk space), unconditionally log initial creation of RRD file
 # 20220326/bie: adjust RRD definition (saves disk space)
 # 20220327/bie: implement shift, prepare zoom
+# 20220331/bie: align button sizes
 
 use strict;
 use warnings;
@@ -610,8 +611,9 @@ sub rrd_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $button_size = "width:100px;height:40px;";
-  $button_size = "width:50px;height:40px;" if ($mobile == 1);
+
+  $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . $config{'button.height'} . "px;";
+
   $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
@@ -628,8 +630,12 @@ sub rrd_html_actions($) {
 
     $querystring = { %$querystring_hp }; # copy for form
 
-    $button_size = "width:60px;height:25px;";
-    $button_size = "width:50px;height:40px;" if ($mobile == 1);
+    if ($mobile == 1) {
+      $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . $config{'button.height'} . "px;";
+    } else {
+      # half height to be able to place shift/zoom buttons
+      $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . int($config{'button.height'} / 2) . "px;";
+    };
 
     for my $rrdRange ("day", "week", "month", "year") {
       if ($querystring_hp->{'rrdRange'} eq $rrdRange) {
@@ -656,6 +662,8 @@ sub rrd_html_actions($) {
     unless ($mobile == 1) {
 
     $response .= "    <tr>\n";
+
+    $button_size = "width:" . int($config{'button.width'} / 4) . "px;height:" . int($config{'button.height'} / 2) . "px;";
 
     ## Shift
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
@@ -691,7 +699,7 @@ sub rrd_html_actions($) {
 
       $response .= "  <td align=\"center\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:25px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
       for my $key (sort keys %$querystring) {
         $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
@@ -754,7 +762,7 @@ sub rrd_html_actions($) {
 
       $response .= "  <td align=\"center\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";width:30px;height:25px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
       for my $key (sort keys %$querystring) {
         $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
