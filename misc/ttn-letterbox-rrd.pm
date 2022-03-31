@@ -490,8 +490,11 @@ sub rrd_get_graphics($$$) {
       push @rrd_opts, "--font=TITLE:" . $font_title;
 
       # watermark shifted to upper region of graph
-      my $watermark_lines = $height / 7;
-      push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time)) . ("\n" x $watermark_lines);
+      if ($mobile == 1) {
+        push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
+      } else {
+        push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time)) . ("\n" x ($height / 7));
+      };
 
       if (($type eq "sensor") || ($type eq "sensor-zoom-empty")) {
         # sensor incl. threshold line
