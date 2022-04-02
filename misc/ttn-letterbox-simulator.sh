@@ -2,7 +2,7 @@
 #
 # Letterbox simulator to test server application
 #
-# (P) & (C) 2019-2021 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -10,6 +10,7 @@
 # 20210627/pbiering: add support for options, major extension
 # 20211030/pbiering: add support for v3 API and change to default (https://www.thethingsindustries.com/docs/reference/data-formats/)
 # 20211030/pbiering: optionally overwrite decoded payload defaults by environment
+# 20220402/pbiering: add support for optional -E|-F <sensor>
 
 program=$(basename $0)
 version="3.0.0"
@@ -17,10 +18,12 @@ version="3.0.0"
 counter_file="./$(basename $0 .sh).counter"
 
 hw_serial="0000000000000000"
+sensor_full=500
+sensor_empty=25
 
 help() {
 	cat <<END
-$program -U <url> -H <auth-header> -D <device-id> [-S <serial>] [-C <counter-file>] [-d] [-r]
+$program -U <url> -H <auth-header> -D <device-id> -B <box-status> [...]
 
  Mandatory
   -U <url>             URL to post simulation data, e.g. https://my.iot.domain.example/cgi-bin/ttn-letterbox-test.cgi
@@ -31,13 +34,15 @@ $program -U <url> -H <auth-header> -D <device-id> [-S <serial>] [-C <counter-fil
  Optional:
   -C <counter-file>    fetch/store counter value of sensors (default: $counter_file.<device-id>)
   -S <serial>          hardware serial (default: $hw_serial)
+  -F <sensor-full>     overwrite sensor value for 'full'  (default: $sensor_full)
+  -E <sensor-empty>    overwrite sensor value for 'empty' (default: $sensor_empty)
   -d                   debug
   -r                   real-run (otherwise only print what will be done)
   -2                   switch to v2 API (legacy)
 END
 }
 
-while getopts "C:A:U:D:B:r2dh?" opt; do
+while getopts "E:F:C:A:U:D:B:r2dh?" opt; do
 	case $opt in
 	    C)
 		counter_file="$OPTARG"
@@ -56,6 +61,12 @@ while getopts "C:A:U:D:B:r2dh?" opt; do
 		;;
 	    B)
 		box_status="$OPTARG"
+		;;
+	    F)
+		sensor_full="$OPTARG"
+		;;
+	    E)
+		sensor_empty="$OPTARG"
 		;;
 	    d)
 		debug=1
@@ -147,10 +158,10 @@ fi
 
 case $box_status in
     full|filled)
-	sensor=500
+	sensor=$sensor_full
 	;;
     empty|emptied)
-	sensor=25
+	sensor=$sensor_empty
 	;;
 esac
 
