@@ -41,6 +41,8 @@
 # 20220218/bie: align config options, cosmetics
 # 20220219/bie: align prototyping for hook 'get_graphics'
 # 20220324/bie: unconditionally log initial creation of XPM files
+# 20220329/bie: change timestamp from UTC to localtime
+# 20220331/bie: align button sizes
 
 use strict;
 use warnings;
@@ -697,7 +699,7 @@ sub statistics_get_graphics($$$) {
       $image_scaled->string(gdTinyFont, $dborder + $textsize, 1, $text, $grey);
 
       # y-top
-      $text = strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
+      $text = strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
       $image_scaled->stringUp(gdTinyFont, 1, length($text) * $textsize + $border + 3, $text, $grey);
 
       if ($mobile == 1 && $type eq "receivedstatus") {
@@ -746,8 +748,7 @@ sub statistics_html_actions($) {
     $toggle_color = "#00E000";
   };
 
-  $button_size = "width:100px;height:40px;";
-  $button_size = "width:70px;height:40px;" if ($mobile == 1);
+  $button_size = "width:" . int($config{'button.width'} / 1.5) . "px;height:" . $config{'button.height'} . "px;";
 
   $response .= "   <form method=\"get\">\n";
   $response .= "    <input type=\"submit\" value=\"" . translate("Statistics") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";

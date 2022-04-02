@@ -39,6 +39,9 @@
 # 20220219/bie: add additional graphics 'sensor-zoom-empty', insert sensor threshold line into graphics, code optimization
 # 20220324/bie: remove MIN/MAX from RRD because not used (saves disk space), unconditionally log initial creation of RRD file
 # 20220326/bie: adjust RRD definition (saves disk space)
+# 20220327/bie: implement shift, prepare zoom
+# 20220331/bie: align button sizes
+# 20220402/bie: activate change of shift/zoom text color in case not default
 
 use strict;
 use warnings;
@@ -48,6 +51,7 @@ use JSON;
 use Date::Parse;
 use MIME::Base64;
 use utf8;
+use POSIX qw/floor ceil/;
 
 ## globals
 our %hooks;
@@ -118,30 +122,47 @@ my %rrd_config = (
 
 
 ## ranges
+# xgrid_offset: offset for GST/MST/LST calculation on zoom/shrink
 my %rrd_range = (
   'day' => {
       'label' => 'hour-of-day',
-      'start' => 'end-24h',
-      'xgrid' => "HOUR:1:HOUR:6:HOUR:2:0:%H",
-      'xgrid_mobile' => "HOUR:1:HOUR:6:HOUR:4:0:%H"
+      'xgrid'          => "HOUR:1:HOUR:6:HOUR:2:0:%H\n%d",
+      'xgrid_zoom_in'  => "MINUTE:30:HOUR:1:HOUR:1:0:%H\n%d",
+      'xgrid_mobile'   => "HOUR:1:HOUR:6:HOUR:4:0:%H",
+      'unit'  => 'h',
+      'step'  => '24',
+      'xgrid_offset'  => 0,
+      'xgrid_zoom_in_level'  => 2,
   },
   'week' => {
       'label' => 'day-of-month',
-      'start' => 'end-7d',
-      'xgrid' => "HOUR:6:DAY:1:DAY:1:86400:%d",
-      'xgrid_mobile' => "HOUR:6:DAY:1:DAY:1:86400:%d"
+      'xgrid'          => "HOUR:6:DAY:1:DAY:1:86400:%m-%d\n%a",
+      'xgrid_zoom_in'  => "HOUR:1:DAY:1:HOUR:12:0:  %H:%M\n%a %m-%d",
+      'xgrid_mobile'   => "HOUR:6:DAY:1:DAY:1:86400:%d",
+      'unit'  => 'd',
+      'step'  => '7',
+      'xgrid_offset'  => 0,
+      'xgrid_zoom_in_level'  => 2,
   },
   'month' => {
       'label' => 'week-of-year',
-      'start' => 'end-1M',
-      'xgrid' => "DAY:1:WEEK:1:DAY:7:0:CW %V",
-      'xgrid_mobile' => "DAY:1:WEEK:1:DAY:7:0:CW %V"
+      'xgrid'          => "DAY:1:WEEK:1:DAY:7:0:%d\nW%V",
+      'xgrid_zoom_in'  => "DAY:1:WEEK:1:DAY:2:0:%d\nW%V",
+      'xgrid_mobile'   => "DAY:1:WEEK:1:DAY:7:0:%V",
+      'unit'  => 'd',
+      'step'  => '36',
+      'xgrid_offset'  => 1,
+      'xgrid_zoom_in_level'  => 2,
   },
   'year' => {
       'label' => 'month-of-year',
-      'start' => 'end-1y',
-      'xgrid' => "MONTH:1:MONTH:1:MONTH:1:0:%m",
-      'xgrid_mobile' => "MONTH:1:MONTH:1:MONTH:2:0:%m"
+      'xgrid'          => "MONTH:1:MONTH:1:MONTH:1:0:%m\n%y",
+      'xgrid_zoom_in'  => "WEEK:1:MONTH:1:MONTH:1:0:%m\n%y",
+      'xgrid_mobile'   => "MONTH:1:MONTH:1:MONTH:2:0:%m",
+      'unit'  => 'd',
+      'step'  => '372',
+      'xgrid_offset'  => 0,
+      'xgrid_zoom_in_level'  => 1,
   }
 );
 
@@ -367,7 +388,6 @@ sub rrd_get_graphics($$$) {
 
       my $width = 260;
       my $height = 80;
-      my $start = $rrd_range{$rrdRange}->{'start'};
       my $xgrid = $rrd_range{$rrdRange}->{'xgrid'};
       my $title = $rrd_range{$rrdRange}->{'label'};
       my $label = $type;
@@ -378,6 +398,81 @@ sub rrd_get_graphics($$$) {
         $xgrid = $rrd_range{$rrdRange}->{'xgrid_mobile'};
       };
 
+      # default
+      my $start = "now-" . $rrd_range{$rrdRange}->{'step'} . $rrd_range{$rrdRange}->{'unit'};
+      my $end   = "now";
+
+      # apply shift/zoom
+      if (($querystring_hp->{'rrdShift'} != 0) || ($querystring_hp->{'rrdZoom'} != 0)) {
+        my $step = $rrd_range{$rrdRange}->{'step'};
+        my $minus_start = $step;
+        my $minus_end   = 0;
+        my $zoom;
+
+        if ($querystring_hp->{'rrdZoom'} < 0) {
+          # zoom out
+          $zoom = (- $querystring_hp->{'rrdZoom'}) + 1;
+          $minus_start = $zoom * $step;
+
+          # adjust x-grid
+          $xgrid =~ /^(\S+:)(\d+)(:\S+:)(\d+)(:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph GST/MST/LST
+          my $GST = - int((- $2) * ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust GST
+          my $MST = - int((- $4) * ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust MST
+          my $LST = - int((- $6) * ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust LST
+          $GST = 1 if ($GST < 1);
+          $MST = 1 if ($MST < 1);
+          $LST = 1 if ($LST < 1);
+          $xgrid = $1 . $GST . $3 . $MST . $5 . $LST . $7; # implant adjusted GST/MST/LST
+
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step / 2 * $zoom);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step / 2 * $zoom);
+          };
+
+        } elsif ($querystring_hp->{'rrdZoom'} > 0) {
+          # zoom in
+          $zoom = $querystring_hp->{'rrdZoom'} + 1;
+
+          $minus_start = - int((- $step) / $zoom); # ceil function
+
+          $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'};
+
+          # adjust x-grid
+          if ($querystring_hp->{'rrdZoom'} >= $rrd_range{$rrdRange}->{'xgrid_zoom_in_level'}) {
+            $xgrid = $rrd_range{$rrdRange}->{'xgrid_zoom_in'};
+          } else {
+            $xgrid =~ /^(\S+:)(\d+)(:\S+:)(\d+)(:\S+:)(\d+)(:\d+:.*)$/so; # extract current RRDgraph GST/MST/LST
+            my $GST = - int((- $2) / ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust GST
+            my $MST = - int((- $4) / ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust MST
+            my $LST = - int((- $6) / ($zoom - $rrd_range{$rrdRange}->{'xgrid_offset'})); # adjust LST
+            $GST = 1 if ($GST < 1);
+            $MST = 1 if ($MST < 1);
+            $LST = 1 if ($LST < 1);
+            $xgrid = $1 . $GST . $3 . $MST . $5 . $LST . $7; # implant adjusted GST/MST/LST
+          };
+
+          # apply shift
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step / 2 / $zoom);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step / 2 / $zoom);
+          };
+        } else {
+          $zoom = 0;
+          if ($querystring_hp->{'rrdShift'} != 0) {
+            # apply shift
+            $minus_end   -= int($querystring_hp->{'rrdShift'} * $step / 2);
+            $minus_start -= int($querystring_hp->{'rrdShift'} * $step / 2);
+          };
+        };
+
+        $start = 'now-' . $minus_start . $rrd_range{$rrdRange}->{'unit'} if ($minus_start > 0); 
+        $end   = 'now-' . $minus_end   . $rrd_range{$rrdRange}->{'unit'} if ($minus_end > 0);
+
+        logging("DEBUG : rrd_get_graphics: zoom=" . $zoom . " minus_start=" . $minus_start . " step=" . $step . " rrdShift=" . $querystring_hp->{'rrdShift'} . " rrdZoom=" . $querystring_hp->{'rrdZoom'} . " start=" . $start . " end=" . $end . " xgrid=" . $xgrid) if defined $config{'rrd.debug'};
+      };
+
       my $font_title = "10:Courier";
       $font_title = "8:Helvetica" if ($mobile == 1);
 
@@ -386,8 +481,7 @@ sub rrd_get_graphics($$$) {
       # base options
       push @rrd_opts, "--title=" . $dev_id . ": " . translate($title);
       push @rrd_opts, "--vertical-label=" . $label;
-      push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S UTC", gmtime(time));
-      push @rrd_opts, "--end=now";
+      push @rrd_opts, "--end=" . $end;
       push @rrd_opts, "--start=" . $start;
       push @rrd_opts, "--width=" . $width;
       push @rrd_opts, "--height=" . $height;
@@ -395,6 +489,13 @@ sub rrd_get_graphics($$$) {
       push @rrd_opts, "--border=0";
       push @rrd_opts, "--font-render-mode=mono";
       push @rrd_opts, "--font=TITLE:" . $font_title;
+
+      # watermark shifted to upper region of graph
+      if ($mobile == 1) {
+        push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time));
+      } else {
+        push @rrd_opts, "--watermark=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time)) . ("\n" x ($height / 7));
+      };
 
       if (($type eq "sensor") || ($type eq "sensor-zoom-empty")) {
         # sensor incl. threshold line
@@ -419,6 +520,7 @@ sub rrd_get_graphics($$$) {
           push @rrd_opts, "--rigid";
         };
 
+        push @rrd_opts, "--no-legend"; # legend overlaps with 2-line x-axis labels :-(
         push @rrd_opts, "DEF:" . $src . "=" . $file . ":" . $src . ":AVERAGE";
         push @rrd_opts, "LINE1:" . $src . $color . ":" . $src;
         push @rrd_opts, "HRULE:" . $threshold . $color_threshold . ":threshold:dashes=3,3";
@@ -452,18 +554,53 @@ sub rrd_html_actions($) {
   my $querystring_hp = $_[0];
   my $button_size;
 
-  # default
+  ## default
+
+  # rrdRange=(day|week|month|year)
   if (! defined $querystring_hp->{'rrdRange'} || $querystring_hp->{'rrdRange'} !~ /^(day|week|month|year)$/o) {
     $querystring_hp->{'rrdRange'} = "day";
   };
 
+  # rrd=(on|off)
   if (! defined $querystring_hp->{'rrd'} || $querystring_hp->{'rrd'} !~ /^(on|off)$/o) {
     $querystring_hp->{'rrd'} = "off";
+  };
+
+  # rrdShift=-[0-9]+
+  if (! defined $querystring_hp->{'rrdShift'} || $querystring_hp->{'rrdShift'} !~ /^(0|(\-[0-9.]+))$/o) {
+    $querystring_hp->{'rrdShift'} = "0";
+  };
+
+  # rrdZoom=(3|2|1|0|-1|-2|-3)
+  if (! defined $querystring_hp->{'rrdZoom'} || $querystring_hp->{'rrdZoom'} !~ /^(0|([-]?[1-3]))$/o) {
+    $querystring_hp->{'rrdZoom'} = "0";
+  };
+
+  my $rrdShiftLimit;
+
+  if ($querystring_hp->{'rrdZoom'} >= 0) {
+    $rrdShiftLimit = - ($querystring_hp->{'rrdZoom'} + 1) * 4 - 1;
+  } elsif ($querystring_hp->{'rrdZoom'} < 0) {
+    $rrdShiftLimit = ceil(4 / ($querystring_hp->{'rrdZoom'} - 1)) + 1;
+  };
+
+  # limit rrdShift depending on rrdZoom
+  if (($querystring_hp->{'rrdZoom'} > 0) && ($querystring_hp->{'rrdShift'} < 0)) {
+    if ($querystring_hp->{'rrdShift'} < $rrdShiftLimit) {
+      # limit
+      $querystring_hp->{'rrdShift'} = $rrdShiftLimit;
+    };
+  } elsif (($querystring_hp->{'rrdZoom'} < 0) && ($querystring_hp->{'rrdShift'} < 0)) {
+    if ($querystring_hp->{'rrdShift'} < $rrdShiftLimit) {
+      # limit
+      $querystring_hp->{'rrdShift'} = $rrdShiftLimit;
+    };
   };
 
   my $querystring = { %$querystring_hp }; # copy for form
 
   my $toggle_color;
+  my $text_color;
 
   my $response = "";
 
@@ -478,8 +615,9 @@ sub rrd_html_actions($) {
   };
 
   $response .= "   <form method=\"get\">\n";
-  $button_size = "width:100px;height:40px;";
-  $button_size = "width:50px;height:40px;" if ($mobile == 1);
+
+  $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . $config{'button.height'} . "px;";
+
   $response .= "    <input type=\"submit\" value=\"RRD\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
@@ -489,7 +627,19 @@ sub rrd_html_actions($) {
 
   # timerange buttons
   if ($querystring_hp->{'rrd'} eq "on") {
+    # create table around
+    $response .= "  <td><!-- timerange+shift+zoom -->\n";
+    $response .= "   <table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n";
+    $response .= "    <tr><!-- timerange -->\n";
+
     $querystring = { %$querystring_hp }; # copy for form
+
+    if ($mobile == 1) {
+      $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . $config{'button.height'} . "px;";
+    } else {
+      # half height to be able to place shift/zoom buttons
+      $button_size = "width:" . int($config{'button.width'} / 2) . "px;height:" . int($config{'button.height'} / 2) . "px;";
+    };
 
     for my $rrdRange ("day", "week", "month", "year") {
       if ($querystring_hp->{'rrdRange'} eq $rrdRange) {
@@ -500,16 +650,145 @@ sub rrd_html_actions($) {
 
       $querystring->{'rrdRange'} = $rrdRange;
 
-      $response .= "  <td>\n";
+      $response .= "  <td colspan=\"2\">\n";
       $response .= "   <form method=\"get\">\n";
-      $response .= "    <input type=\"submit\" value=\"" . translate($rrdRange) . "\" style=\"background-color:" . $toggle_color . ";width:60px;height:40px;\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . translate($rrdRange) . "\" style=\"background-color:" . $toggle_color . ";$button_size\">\n";
       for my $key (sort keys %$querystring) {
-        $response .= " <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+        $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
       };
       $response .= "   </form>\n";
 
       $response .= "  </td>\n";
     };
+
+    $response .= "    </tr><!-- timerange -->\n";
+
+    unless ($mobile == 1) {
+
+    $response .= "    <tr>\n";
+
+    $button_size = "width:" . int($config{'button.width'} / 4) . "px;height:" . int($config{'button.height'} / 2) . "px;";
+
+    ## Shift
+    $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
+    $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
+    $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
+
+    $text_color = "#000000";
+    if ($querystring_hp->{'rrdShift'} < 0) {
+      $text_color = "#6080C0"; # similar to '<' but darker
+    };
+
+    $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Shift</font></td>\n";
+
+    for my $button ("value", "<", ">") {
+      $toggle_color = "#40BFFF";
+
+      $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'};
+
+      if ($button eq "<") {
+        if ($querystring_hp->{'rrdShift'} <= $rrdShiftLimit) {
+          $toggle_color = "#202020";
+        } else {
+          $toggle_color = "#80A0E0";
+          $querystring->{'rrdShift'} = ceil($querystring_hp->{'rrdShift'} - 1);
+        };
+      } elsif ($button eq ">") {
+        if ($querystring_hp->{'rrdShift'} >= 0) {
+          $toggle_color = "#202020";
+        } else {
+          $toggle_color = "#80E0A0";
+          $querystring->{'rrdShift'} = floor($querystring_hp->{'rrdShift'} + 1);
+        };
+      } else {
+        # display only the value
+        $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">" . $querystring_hp->{'rrdShift'} . "</font></td>\n";
+        next;
+      };
+
+      $response .= "  <td align=\"center\">\n";
+      $response .= "   <form method=\"get\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
+      for my $key (sort keys %$querystring) {
+        $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+      };
+      $response .= "   </form>\n";
+      $response .= "  </td>\n";
+    };
+
+    ## Zoom
+    $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
+    $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
+
+    $text_color = "#000000";
+
+    if ($querystring_hp->{'rrdZoom'} > 0) {
+      $text_color = "#00C010"; # similar to '+' but darker
+    } elsif ($querystring_hp->{'rrdZoom'} < 0) {
+      $text_color = "#C00010"; # similar to '-' but darker
+    };
+
+    $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Zoom</font></td>\n";
+
+    for my $button ("value", "-", "+") {
+      $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
+      $toggle_color = "#40BFFF";
+
+      $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'};
+
+      my $rrdShiftAdjust = 0;
+
+      if (($querystring_hp->{'rrdShift'} < 0) && ($querystring_hp->{'rrdZoom'} >= 0)) {
+        $rrdShiftAdjust = floor(($querystring_hp->{'rrdShift'} - 1) / ($querystring_hp->{'rrdZoom'} + 1) * 10) / 10;
+      } elsif (($querystring_hp->{'rrdShift'} < 0) && ($querystring_hp->{'rrdZoom'} < 0)) {
+        $rrdShiftAdjust = - floor(($querystring_hp->{'rrdShift'} - 1) / ($querystring_hp->{'rrdZoom'}) * 10) / 10;
+      };
+
+      if ($button eq "-") {
+        if ($querystring_hp->{'rrdZoom'} <= -3) {
+          $toggle_color = "#202020";
+        } else {
+          $toggle_color = "#E00020";
+          $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} - 1;
+          $querystring->{'rrdShift'} = $querystring->{'rrdShift'} - $rrdShiftAdjust;
+        };
+      } elsif ($button eq "+") {
+        if ($querystring_hp->{'rrdZoom'} >= 3) {
+          $toggle_color = "#202020";
+        } else {
+          $toggle_color = "#00E020";
+          $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} + 1;
+          $querystring->{'rrdShift'} = $querystring->{'rrdShift'} + $rrdShiftAdjust;
+        };
+      } else {
+        # display only the value
+        $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">";
+        if ($querystring_hp->{'rrdZoom'} >= 0) {
+          $response .= $querystring_hp->{'rrdZoom'} + 1 . "x";
+        } else {
+          $response .= "&frac12;" if ($querystring_hp->{'rrdZoom'} == -1);
+          $response .= "&frac13;" if ($querystring_hp->{'rrdZoom'} == -2);
+          $response .= "&frac14;" if ($querystring_hp->{'rrdZoom'} == -3);
+        };
+        $response .= "</font></td>\n";
+        next;
+      };
+
+      $response .= "  <td align=\"center\">\n";
+      $response .= "   <form method=\"get\">\n";
+      $response .= "    <input type=\"submit\" value=\"" . $button . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
+      for my $key (sort keys %$querystring) {
+        $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring->{$key} . "\" hidden>\n";
+      };
+      $response .= "   </form>\n";
+      $response .= "  </td>\n";
+    };
+    $response .= "    </tr>\n";
+
+    }; # unless ($mobile == 1)
+
+    $response .= "   </table>\n";
+    $response .= "  </td><!-- timerange+shift+zoom -->\n";
   };
 
   return $response;

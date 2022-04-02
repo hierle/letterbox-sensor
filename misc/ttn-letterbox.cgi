@@ -133,6 +133,8 @@
 # 20220218/bie: add missing 'init_device' hook for POST
 # 20220219/bie: display '*undef* in case a raw data value is missing (e.g. sometimes 'snr' for unknown reason)
 # 20220219/bie: include device hash into module hook 'get_graphics' calls
+# 20220331/bie: define button height global, align button sizes
+# 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
 #
 # TODO:
 # - lock around file writes
@@ -206,6 +208,8 @@ our %config = (
   'autorefresh'   => 900,   # (seconds) of HTML autorefreshing
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
+  'button.height' => 50,    # button height in px
+  'button.width'  => 120,   # button width  in px
   'debugmask'     => 0,     # debug mask (0x1: log raw JSON/POST)
   'debug'         => 0      # debug
 );
@@ -748,8 +752,10 @@ sub req_post() {
 
     # overwrite box status with given threshold
     if (($sensor < $threshold) && ($box =~ /^(full|filled)$/o)) {
+      $lines[0] =~ s/("box":)"(full|filled)"/$1"empty"/o; # adjust raw content
       $payload->{'box'} = "empty";
     } elsif (($sensor >= $threshold) && ($box =~ /^(empty|emptied)$/o)) {
+      $lines[0] =~ s/("box":)"(empty|emptied)"/$1"full"/o; # adjust raw content
       $payload->{'box'} = "full";
     };
   };
@@ -767,7 +773,7 @@ sub req_post() {
     };
   };
 
-  # check
+  ## state adjustments empty->filled->full->emptied->empty
   if (-e $filledfile && -e $emptiedfile) {
     # files are existing, retrieve contents
     open FILLEDF, "<", $filledfile or die;
@@ -790,7 +796,7 @@ sub req_post() {
         # box was empty last time
         $filledtime_write = 1;
         # adjust status
-        $lines[0] =~ s/"full"/"filled"/o;
+        $lines[0] =~ s/("box":)"full"/$1"filled"/o; # adjust raw content
         $payload->{'box'} = "filled";
       };
     } elsif ($payload->{'box'} eq "empty") {
@@ -799,7 +805,7 @@ sub req_post() {
         # box was full last time
         $emptiedtime_write = 1;
         # adjust status
-        $lines[0] =~ s/"empty"/"emptied"/o;
+        $lines[0] =~ s/("box":)"empty"/$1"emptied"/o; # adjust raw content
         $payload->{'box'} = "emptied";
       };
     };
@@ -1000,13 +1006,12 @@ sub req_get() {
     # store in hash
     $dev_hash{$dev_id}->{'box'} = $payload_last->{'box'};
 
-    my ($timeLastChange, $typeLastChange);
+    my $timeLastChange;
 
     if (defined $filledtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
       $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = $filledtime_ut;
       $timeLastChange = $filledtime_ut;
-      $typeLastChange = "Filled";
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = "n/a";
       $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = 0;
@@ -1016,8 +1021,8 @@ sub req_get() {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
       $dev_hash{$dev_id}->{'values'}->{'timeLastEmptied'} = $emptiedtime_ut;
       if ($emptiedtime_ut > $timeLastChange) {
+        # only overwrite if > $filledtime_ut
         $timeLastChange = $emptiedtime_ut;
-        $typeLastChange = "Emptied";
       };
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = "n/a";
@@ -1155,7 +1160,8 @@ sub response($$;$$$$$) {
     print " <META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">\n";
     print " <META HTTP-EQUIV=\"EXPIRES\" CONTENT=\"0\">\n";
     print "$header";
-    print "</head>\n<body>\n";
+    print "</head>\n";
+    print "<body style=\"font-family: sans-serif\">\n";
     print "<font size=\"+1\">TTN " . translate("Letterbox Sensor Status") . "</font>\n";
     print "<br />\n";
     print "<font size=\"-1\">" . translate("hosted on") . " " . $ENV{'SERVER_NAME'} . "</font>\n";
@@ -1165,10 +1171,10 @@ sub response($$;$$$$$) {
 
     if (defined $refresh_delay && ! defined $quiet) {
       print "<br />\n";
-      print "<font size=\"-1\">" . translate("redirect in") . " " . $refresh_delay . " " . translate("seconds") . "</font>";
+      print "<font size=\"-1\">" . translate("redirect in") . " " . $refresh_delay . " " . translate("seconds") . "</font>\n";
     };
 
-    print "\n</body>\n</html>\n";
+    print "</body>\n</html>\n";
   };
 };
 
@@ -1187,17 +1193,16 @@ sub letter($) {
   my $querystring_copy;
   my $toggle_color;
 
-  my $button_size;
+  my $button_size   = "width:" . $config{'button.width'} . "px;height:" . $config{'button.height'} . "px;";
+  my $button_size13 = "width:" . int($config{'button.width'} * 1.3) . "px;height:" . $config{'button.height'} . "px;";
 
   ## button row #1
-  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #1 -->\n";
   $response .= " <tr>\n";
 
   # print reload button
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $button_size = "width:150px;height:50px;";
-  $button_size = "width:100px;height:50px;" if ($mobile == 1);
   $response .= "    <input type=\"submit\" value=\"" . translate("Reload") . "\" style=\"background-color:#DEB887;" . $button_size . "\">\n";
   for my $key (sort keys %querystring) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring{$key} . "\" hidden>\n";
@@ -1217,7 +1222,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";width:150px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size13 . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
@@ -1236,7 +1241,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";width:100px;height:50px;\">\n";
+  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
@@ -1247,7 +1252,7 @@ sub letter($) {
   $response .= "</table>\n";
 
   ## button row #2
-  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
+  $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #2 -->\n";
   $response .= " <tr>\n";
 
   # html action per module
@@ -1258,9 +1263,9 @@ sub letter($) {
   };
 
   $response .= " </tr>\n";
-
   $response .= "</table>\n";
 
+  ## autorefresh
   if (defined $ENV{'SERVER_PROTOCOL'} && $ENV{'SERVER_PROTOCOL'} eq "INCLUDED") {
     $response .= "<br />\n";
   } elsif (defined $config{'autorefresh'} && $config{'autorefresh'} ne "0" && $querystring{'autoreload'} eq "on") {
