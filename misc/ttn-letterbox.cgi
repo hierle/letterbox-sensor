@@ -1003,13 +1003,12 @@ sub req_get() {
     # store in hash
     $dev_hash{$dev_id}->{'box'} = $payload_last->{'box'};
 
-    my ($timeLastChange, $typeLastChange);
+    my $timeLastChange;
 
     if (defined $filledtime_ut) {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($filledtime_ut));
       $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = $filledtime_ut;
       $timeLastChange = $filledtime_ut;
-      $typeLastChange = "Filled";
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastFilled'} = "n/a";
       $dev_hash{$dev_id}->{'values'}->{'timeLastFilled'} = 0;
@@ -1019,8 +1018,8 @@ sub req_get() {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = strftime("%Y-%m-%d %H:%M:%S %Z", localtime($emptiedtime_ut));
       $dev_hash{$dev_id}->{'values'}->{'timeLastEmptied'} = $emptiedtime_ut;
       if ($emptiedtime_ut > $timeLastChange) {
+        # only overwrite if > $filledtime_ut
         $timeLastChange = $emptiedtime_ut;
-        $typeLastChange = "Emptied";
       };
     } else {
       $dev_hash{$dev_id}->{'info'}->{'timeLastEmptied'} = "n/a";
