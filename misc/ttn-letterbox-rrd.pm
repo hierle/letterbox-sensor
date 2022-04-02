@@ -41,6 +41,7 @@
 # 20220326/bie: adjust RRD definition (saves disk space)
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
+# 20220402/bie: activate change of shift/zoom text color in case not default
 
 use strict;
 use warnings;
@@ -672,11 +673,16 @@ sub rrd_html_actions($) {
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
     $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
-    $response .= "  <td align=\"right\"><font size=\"-1\">Shift</font></td>\n";
+
+    $text_color = "#000000";
+    if ($querystring_hp->{'rrdShift'} < 0) {
+      $text_color = "#6080C0"; # similar to '<' but darker
+    };
+
+    $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Shift</font></td>\n";
 
     for my $button ("value", "<", ">") {
       $toggle_color = "#40BFFF";
-      $text_color = "#000000";
 
       $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'};
 
@@ -696,7 +702,7 @@ sub rrd_html_actions($) {
         };
       } else {
         # display only the value
-        $response .= "  <td align=\"right\"><font size=\"-1\">" . $querystring_hp->{'rrdShift'} . "</font></td>\n";
+        $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">" . $querystring_hp->{'rrdShift'} . "</font></td>\n";
         next;
       };
 
@@ -713,12 +719,20 @@ sub rrd_html_actions($) {
     ## Zoom
     $querystring->{'rrdZoom'}  = $querystring_hp->{'rrdZoom'} ; # default from last
     $querystring->{'rrdRange'} = $querystring_hp->{'rrdRange'}; # default from last
-    $response .= "  <td align=\"right\"><font size=\"-1\">Zoom</font></td>\n";
+
+    $text_color = "#000000";
+
+    if ($querystring_hp->{'rrdZoom'} > 0) {
+      $text_color = "#00C010"; # similar to '+' but darker
+    } elsif ($querystring_hp->{'rrdZoom'} < 0) {
+      $text_color = "#C00010"; # similar to '-' but darker
+    };
+
+    $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Zoom</font></td>\n";
 
     for my $button ("value", "-", "+") {
       $querystring->{'rrdShift'} = $querystring_hp->{'rrdShift'}; # default from last
       $toggle_color = "#40BFFF";
-      $text_color = "#000000";
 
       $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'};
 
@@ -748,16 +762,13 @@ sub rrd_html_actions($) {
         };
       } else {
         # display only the value
-        $response .= "  <td align=\"right\"><font size=\"-1\">";
+        $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">";
         if ($querystring_hp->{'rrdZoom'} >= 0) {
           $response .= $querystring_hp->{'rrdZoom'} + 1 . "x";
         } else {
           $response .= "&frac12;" if ($querystring_hp->{'rrdZoom'} == -1);
           $response .= "&frac13;" if ($querystring_hp->{'rrdZoom'} == -2);
           $response .= "&frac14;" if ($querystring_hp->{'rrdZoom'} == -3);
-
-#          $response .= $querystring_hp->{'rrdZoom'} + 1;
-#          $response .= "1/" . (- $querystring_hp->{'rrdZoom'} + 1);
         };
         $response .= "</font></td>\n";
         next;
