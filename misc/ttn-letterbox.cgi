@@ -134,6 +134,7 @@
 # 20220219/bie: display '*undef* in case a raw data value is missing (e.g. sometimes 'snr' for unknown reason)
 # 20220219/bie: include device hash into module hook 'get_graphics' calls
 # 20220331/bie: define button height global, align button sizes
+# 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
 #
 # TODO:
 # - lock around file writes
@@ -751,8 +752,10 @@ sub req_post() {
 
     # overwrite box status with given threshold
     if (($sensor < $threshold) && ($box =~ /^(full|filled)$/o)) {
+      $lines[0] =~ s/("box":)"(full|filled)"/$1"empty"/o; # adjust raw content
       $payload->{'box'} = "empty";
     } elsif (($sensor >= $threshold) && ($box =~ /^(empty|emptied)$/o)) {
+      $lines[0] =~ s/("box":)"(empty|emptied)"/$1"full"/o; # adjust raw content
       $payload->{'box'} = "full";
     };
   };
