@@ -770,7 +770,7 @@ sub req_post() {
     };
   };
 
-  # check
+  ## state adjustments empty->filled->full->emptied->empty
   if (-e $filledfile && -e $emptiedfile) {
     # files are existing, retrieve contents
     open FILLEDF, "<", $filledfile or die;
@@ -793,7 +793,7 @@ sub req_post() {
         # box was empty last time
         $filledtime_write = 1;
         # adjust status
-        $lines[0] =~ s/"full"/"filled"/o;
+        $lines[0] =~ s/("box":)"full"/$1"filled"/o; # adjust raw content
         $payload->{'box'} = "filled";
       };
     } elsif ($payload->{'box'} eq "empty") {
@@ -802,7 +802,7 @@ sub req_post() {
         # box was full last time
         $emptiedtime_write = 1;
         # adjust status
-        $lines[0] =~ s/"empty"/"emptied"/o;
+        $lines[0] =~ s/("box":)"empty"/$1"emptied"/o; # adjust raw content
         $payload->{'box'} = "emptied";
       };
     };
