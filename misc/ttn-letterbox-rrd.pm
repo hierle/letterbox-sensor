@@ -42,7 +42,7 @@
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
 # 20220402/bie: activate change of shift/zoom text color in case not default
-# 20220404/bie: display RRDs for rssi, snr, voltage only in case of "details=on"
+# 20220404/bie: display RRDs for rssi, snr, voltage, tempC only in case of "details=on"
 
 use strict;
 use warnings;
@@ -90,7 +90,7 @@ $translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 ## statistics
 my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
 
-my @rrd_details_only = ("rssi", "snr", "voltage"); # RRDs which are only displayed in case of details=on
+my @rrd_details_only = ("rssi", "snr", "voltage", "tempC"); # RRDs which are only displayed in case of details=on
 
 
 ## sizes
