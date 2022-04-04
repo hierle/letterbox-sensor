@@ -42,6 +42,7 @@
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
 # 20220402/bie: activate change of shift/zoom text color in case not default
+# 20220404/bie: display RRDs for rssi, snr, voltage only in case of "details=on"
 
 use strict;
 use warnings;
@@ -88,6 +89,8 @@ $translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 
 ## statistics
 my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
+
+my @rrd_details_only = ("rssi", "snr", "voltage"); # RRDs which are only displayed in case of details=on
 
 
 ## sizes
@@ -380,6 +383,10 @@ sub rrd_get_graphics($$$) {
     my @rrd_types = @rrd;
     push @rrd_types, "sensor-zoom-empty"; # extra graph
     for my $type (@rrd_types) {
+      if ($querystring_hp->{'details'} eq "off") {
+        next if grep /^$type$/, @rrd_details_only;
+      };
+
       logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd.debug'};
 
       my $output = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".png";
