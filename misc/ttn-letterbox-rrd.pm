@@ -11,6 +11,9 @@
 # Supported Query String parameters
 #   - rrd=[on|off]
 #   - rrdRange=[day|week|month|year]
+#   - rrdShift=[0|-1|...|<min-depending-on-zoom>]
+#   - rrdZoom=[-4|...|0|...|+4]
+#   - details=[on|off]
 #
 # Required configuration:
 #   - data directory
@@ -22,6 +25,9 @@
 #   - sensor-zoom-empty graph
 #       rrd.sensor-zoom-empty.min
 #       rrd.sensor-zoom-empty.max
+#
+# Notes:
+#   - because of nature of RRD implementation, 1 missed/broken update by sensor results in 3 N/A entries in RRD
 #
 # Changelog:
 # 20191110/bie: initial version
