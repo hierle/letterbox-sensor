@@ -11,6 +11,9 @@
 # Supported Query String parameters
 #   - rrd=[on|off]
 #   - rrdRange=[day|week|month|year]
+#   - rrdShift=[0|-1|...|<min-depending-on-zoom>]
+#   - rrdZoom=[-4|...|0|...|+4]
+#   - details=[on|off]
 #
 # Required configuration:
 #   - data directory
@@ -22,6 +25,9 @@
 #   - sensor-zoom-empty graph
 #       rrd.sensor-zoom-empty.min
 #       rrd.sensor-zoom-empty.max
+#
+# Notes:
+#   - because of nature of RRD implementation, 1 missed/broken update by sensor results in 3 N/A entries in RRD
 #
 # Changelog:
 # 20191110/bie: initial version
@@ -42,6 +48,7 @@
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
 # 20220402/bie: activate change of shift/zoom text color in case not default
+# 20220404/bie: display RRDs for 'rssi', 'snr', 'voltage', 'tempC', 'sensor-zoom-empty' only in case of "details=on"
 
 use strict;
 use warnings;
@@ -88,6 +95,8 @@ $translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 
 ## statistics
 my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
+
+my @rrd_details_on = ("rssi", "snr", "voltage", "tempC"); # RRDs which are only displayed in case of details=on
 
 
 ## sizes
@@ -378,8 +387,16 @@ sub rrd_get_graphics($$$) {
     logging("DEBUG : file missing, skip: " . $file) if defined $config{'rrd.debug'};
   } else {
     my @rrd_types = @rrd;
-    push @rrd_types, "sensor-zoom-empty"; # extra graph
+
+    if ($querystring_hp->{'details'} eq "on") {
+      push @rrd_types, "sensor-zoom-empty"; # extra graph
+    };
+
     for my $type (@rrd_types) {
+      if ($querystring_hp->{'details'} eq "off") {
+        next if grep /^$type$/, @rrd_details_on;
+      };
+
       logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd.debug'};
 
       my $output = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".png";
@@ -723,9 +740,9 @@ sub rrd_html_actions($) {
     $text_color = "#000000";
 
     if ($querystring_hp->{'rrdZoom'} > 0) {
-      $text_color = "#00C010"; # similar to '+' but darker
+      $text_color = "#00A020"; # similar to '+' but darker
     } elsif ($querystring_hp->{'rrdZoom'} < 0) {
-      $text_color = "#C00010"; # similar to '-' but darker
+      $text_color = "#C02020"; # similar to '-' but darker
     };
 
     $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Zoom</font></td>\n";
@@ -748,7 +765,7 @@ sub rrd_html_actions($) {
         if ($querystring_hp->{'rrdZoom'} <= -3) {
           $toggle_color = "#202020";
         } else {
-          $toggle_color = "#E00020";
+          $toggle_color = "#E04040";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} - 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} - $rrdShiftAdjust;
         };
@@ -756,7 +773,7 @@ sub rrd_html_actions($) {
         if ($querystring_hp->{'rrdZoom'} >= 3) {
           $toggle_color = "#202020";
         } else {
-          $toggle_color = "#00E020";
+          $toggle_color = "#00C040";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} + 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} + $rrdShiftAdjust;
         };

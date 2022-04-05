@@ -12,6 +12,7 @@
 #
 # Supported Query String parameters
 #   - statistics=[on|off]
+#   - details=[on|off]
 #
 # Required configuration:
 #   - data directory
@@ -43,6 +44,7 @@
 # 20220324/bie: unconditionally log initial creation of XPM files
 # 20220329/bie: change timestamp from UTC to localtime
 # 20220331/bie: align button sizes
+# 20220404/bie: display 'receivedstatus' only in case of "details=on"
 
 use strict;
 use warnings;
@@ -78,6 +80,8 @@ $hooks{'statistics'}->{'html_actions'} = \&statistics_html_actions;
 
 ## statistics
 my @statistics = ("boxstatus", "receivedstatus");
+
+my @statistics_details_on = ("receivedstatus"); # display only in case of "details=on"
 
 
 ## small charset for digits encoded in 15 bit
@@ -647,12 +651,17 @@ sub statistics_store_data($$$) {
 ## get graphics
 sub statistics_get_graphics($$$) {
   my $dev_id = $_[0];
+  my $querystring_hp = $_[1];
 
   my %html;
 
   logging("Called: get_graphics with dev_id=" . $dev_id) if defined $config{'statistics.debug'};
 
   for my $type (@statistics) {
+    if ($querystring_hp->{'details'} eq "off") {
+      next if grep /^$type$/, @statistics_details_on;
+    };
+
     my $file = $config{'datadir'} . "/ttn." . $dev_id . "." . $type . ".xpm";
 
     logging("DEBUG : check for file: " . $file) if defined $config{'statistics.debug'};
