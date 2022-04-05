@@ -48,7 +48,7 @@
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
 # 20220402/bie: activate change of shift/zoom text color in case not default
-# 20220404/bie: display RRDs for rssi, snr, voltage, tempC only in case of "details=on"
+# 20220404/bie: display RRDs for 'rssi', 'snr', 'voltage', 'tempC', 'sensor-zoom-empty' only in case of "details=on"
 
 use strict;
 use warnings;
@@ -387,7 +387,11 @@ sub rrd_get_graphics($$$) {
     logging("DEBUG : file missing, skip: " . $file) if defined $config{'rrd.debug'};
   } else {
     my @rrd_types = @rrd;
-    push @rrd_types, "sensor-zoom-empty"; # extra graph
+
+    if ($querystring_hp->{'details'} eq "on") {
+      push @rrd_types, "sensor-zoom-empty"; # extra graph
+    };
+
     for my $type (@rrd_types) {
       if ($querystring_hp->{'details'} eq "off") {
         next if grep /^$type$/, @rrd_details_on;
