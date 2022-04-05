@@ -740,9 +740,9 @@ sub rrd_html_actions($) {
     $text_color = "#000000";
 
     if ($querystring_hp->{'rrdZoom'} > 0) {
-      $text_color = "#00C010"; # similar to '+' but darker
+      $text_color = "#00A020"; # similar to '+' but darker
     } elsif ($querystring_hp->{'rrdZoom'} < 0) {
-      $text_color = "#C00010"; # similar to '-' but darker
+      $text_color = "#C02020"; # similar to '-' but darker
     };
 
     $response .= "  <td align=\"right\"><font size=\"-1\" color=\"" . $text_color . "\">Zoom</font></td>\n";
@@ -765,7 +765,7 @@ sub rrd_html_actions($) {
         if ($querystring_hp->{'rrdZoom'} <= -3) {
           $toggle_color = "#202020";
         } else {
-          $toggle_color = "#E00020";
+          $toggle_color = "#E04040";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} - 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} - $rrdShiftAdjust;
         };
@@ -773,7 +773,7 @@ sub rrd_html_actions($) {
         if ($querystring_hp->{'rrdZoom'} >= 3) {
           $toggle_color = "#202020";
         } else {
-          $toggle_color = "#00E020";
+          $toggle_color = "#00C040";
           $querystring->{'rrdZoom'} = $querystring_hp->{'rrdZoom'} + 1;
           $querystring->{'rrdShift'} = $querystring->{'rrdShift'} + $rrdShiftAdjust;
         };
