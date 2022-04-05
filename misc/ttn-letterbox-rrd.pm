@@ -96,7 +96,7 @@ $translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 ## statistics
 my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
 
-my @rrd_details_only = ("rssi", "snr", "voltage", "tempC"); # RRDs which are only displayed in case of details=on
+my @rrd_details_on = ("rssi", "snr", "voltage", "tempC"); # RRDs which are only displayed in case of details=on
 
 
 ## sizes
@@ -390,7 +390,7 @@ sub rrd_get_graphics($$$) {
     push @rrd_types, "sensor-zoom-empty"; # extra graph
     for my $type (@rrd_types) {
       if ($querystring_hp->{'details'} eq "off") {
-        next if grep /^$type$/, @rrd_details_only;
+        next if grep /^$type$/, @rrd_details_on;
       };
 
       logging("DEBUG : file existing, export graphics: " . $file . " type:" . $type) if defined $config{'rrd.debug'};
