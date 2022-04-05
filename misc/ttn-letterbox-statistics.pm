@@ -44,7 +44,7 @@
 # 20220324/bie: unconditionally log initial creation of XPM files
 # 20220329/bie: change timestamp from UTC to localtime
 # 20220331/bie: align button sizes
-# 20220404/bie: display receivedstatus only in case of "details=on"
+# 20220404/bie: display 'receivedstatus' only in case of "details=on"
 
 use strict;
 use warnings;
