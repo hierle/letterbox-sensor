@@ -11,8 +11,8 @@
 # digitFontPattern/paint taken from http://ip.bieringer.de/cgn-test.html
 #
 # Supported Query String parameters
-#   - statistics=[on|off]
-#   - details=[on|off]
+#   - statistics=(on|off)
+#   - details=(off)
 #
 # Required configuration:
 #   - data directory
@@ -44,7 +44,7 @@
 # 20220324/bie: unconditionally log initial creation of XPM files
 # 20220329/bie: change timestamp from UTC to localtime
 # 20220331/bie: align button sizes
-# 20220404/bie: display 'receivedstatus' only in case of "details=on"
+# 20220404/bie: display 'receivedstatus' only in case of "details" != "off"
 
 use strict;
 use warnings;
@@ -81,7 +81,7 @@ $hooks{'statistics'}->{'html_actions'} = \&statistics_html_actions;
 ## statistics
 my @statistics = ("boxstatus", "receivedstatus");
 
-my @statistics_details_on = ("receivedstatus"); # display only in case of "details=on"
+my @statistics_details_on = ("receivedstatus"); # display only in case of "details" != "off"
 
 
 ## small charset for digits encoded in 15 bit
