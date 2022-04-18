@@ -194,7 +194,7 @@ sub userauth_generate() {
   if (! defined $user_data{'username'} || $user_data{'username'} eq "") {
     my $response;
     $response .= "   <b>" . translate("Authentication required") . "</b>\n";
-    $response .= "   <form method=\"post\">\n";
+    $response .= "   <form id=\"submitForm\" method=\"post\" accept-charset=\"utf-8\">\n";
     $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
     $response .= "     <tr>\n";
     $response .= "      <td>" . translate("Username") . ":</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
