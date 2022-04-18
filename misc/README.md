@@ -72,7 +72,7 @@ $BASEDIR/conf/ttn-letterbox.conf
 
 (don't forget to disable it afterwards)
 
-- device file: $BASEDIR/data/ttn/ttn.devices.list
+- device file: `$BASEDIR/data/ttn/ttn.devices.list`
 
 
 ## Test TTN receiver support
@@ -98,12 +98,12 @@ ttn-letterbox-simulator.sh -U <url> -H <auth-header> -D <device-id> -B <box-stat
   -2                   switch to v2 API (legacy)
 ```
 
-- Log file with raw contents: $BASEDIR/data/ttn/ttn.my-sensor-name.%Y%m%d.raw.log
-- Status files:
-  - $BASEDIR/data/ttn/ttn.my-sensor-name.filled.time.status
-  - $BASEDIR/data/ttn/ttn.my-sensor-name.emptied.time.status
+- Log file with raw contents: `$BASEDIR/data/ttn/ttn.my-sensor-name.%Y%m%d.raw.log`
+- Last status change files:
+  - `$BASEDIR/data/ttn/ttn.my-sensor-name.filled.time.status`
+  - `$BASEDIR/data/ttn/ttn.my-sensor-name.emptied.time.status`
 - Last received raw content:
-  - $BASEDIR/data/ttn/ttn.my-sensor-name.last.raw.status
+  - '$BASEDIR/data/ttn/ttn.my-sensor-name.last.raw.status`
 
 ## Configure TTN HTTP integration
 
@@ -116,7 +116,7 @@ Applications → Add application
 Payload Formaters → Uplink
 - Formatter Type: Javascript
 - Payload Format: Custom
-- Decoder: -> take from payload.formatter.uplink-v3.txt
+- Decoder: -> take from `payload.formatter.uplink-v3.txt`
 
 ### Integration
 
@@ -124,39 +124,46 @@ Payload Formaters → Uplink
 
 Integration → Webhooks → Custom webhook 
 - Webhook Format: JSON
-- Base URL: https://my.iot.domain.example/cgi-bin/ttn-letterbox-test.cgi (example)
-- Additional Headers: X-TTN-AUTH: MySeCrEt (example)
+- Base URL: `https://my.iot.domain.example/cgi-bin/ttn-letterbox.cgi` (example)
+- Additional Headers: `X-TTN-AUTH: MySeCrEt` (example)
 
 
 ## Module Configuration
 
 ### ttn-letterbox-userauth.pm
 
-- user file: $BASEDIR/data/ttn/ttn.users.list
+- supports
+  - username/password authentication
+  - optional protection by CAPTCHA (reCAPTCHA, hCaptcha, FriendlyCaptcha)
+- user file: `$BASEDIR/data/ttn/ttn.users.list`
 
 -> see more for now description inside module
 
 ### ttn-letterbox-rrd.pm
 
-- RRD file (per sensor): $BASEDIR/data/ttn/ttn.my-sensor-name.rrd
+- support displaying timeline of various values
+- RRD file (per sensor): `$BASEDIR/data/ttn/ttn.my-sensor-name.rrd`
 
 -> see more for now description inside module
 
 ### ttn-letterbox-statistics.pm
 
-- statistics file 'boxstatus' (per sensor): $BASEDIR/data/ttn/ttn.my-sensor-name.boxstatus.xpm
-- statistics file 'receivedstatus' (per sensor): $BASEDIR/data/ttn/ttn.my-sensor-name.receivedstatus.xpm
+- support displaying 'boxstatus' and 'receivedstatus' in a matrix picture
+- statistics file 'boxstatus' (per sensor): `$BASEDIR/data/ttn/ttn.my-sensor-name.boxstatus.xpm`
+- statistics file 'receivedstatus' (per sensor): `$BASEDIR/data/ttn/ttn.my-sensor-name.receivedstatus.xpm`
 
 -> see more for now description inside module
 
 ### ttn-letterbox-notifyEmail.pm
 
-- notification per user/sensor: $BASEDIR/data/ttn/ttn.notify.list
+- support sending e-mail on status change
+- notification per user/sensor: `$BASEDIR/data/ttn/ttn.notify.list`
 
 -> see more for now description inside module
 
 ### ttn-letterbox-notifyDbusSignal.pm
 
-- notification per user/sensor: $BASEDIR/data/ttn/ttn.notify.list
+- support sending a "Signal" message on status change
+- notification per user/sensor: `$BASEDIR/data/ttn/ttn.notify.list`
 
 -> see more for now description inside module
