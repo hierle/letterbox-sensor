@@ -70,6 +70,7 @@ our %querystring;
 our $conffile;
 our $datadir;
 our %translations;
+our $language;
 
 # local data
 my $session_token_split = 40;
