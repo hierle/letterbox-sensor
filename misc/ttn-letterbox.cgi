@@ -26,9 +26,9 @@
 #   - installation of following usually not by default installed Perl modules (EL8/Fedora35)
 #       perl-Data-UUID
 #       perl-URI-Encode
-#       perl-Apache-Htpasswd
-#       perl-Authen-Passphrase or perl-Crypt-SaltedHash
-#       perl-LWP-Protocol-https (for CAPTCHA verification)
+#       perl-Apache-Htpasswd (for user authentication)
+#       perl-Authen-Passphrase or perl-Crypt-SaltedHash (for user authentication)
+#       perl-LWP-Protocol-https (for user CAPTCHA verification)
 #
 # Installation
 #   - store CGI into cgi-bin directory
