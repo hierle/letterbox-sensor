@@ -103,7 +103,7 @@ ttn-letterbox-simulator.sh -U <url> -H <auth-header> -D <device-id> -B <box-stat
   - `$BASEDIR/data/ttn/ttn.my-sensor-name.filled.time.status`
   - `$BASEDIR/data/ttn/ttn.my-sensor-name.emptied.time.status`
 - Last received raw content:
-  - '$BASEDIR/data/ttn/ttn.my-sensor-name.last.raw.status`
+  - `$BASEDIR/data/ttn/ttn.my-sensor-name.last.raw.status`
 
 ## Configure TTN HTTP integration
 
