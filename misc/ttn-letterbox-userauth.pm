@@ -10,7 +10,8 @@
 #
 # Required configuration:
 #   - data directory
-#	datadir=<path>
+#   datadir=<path>
+#
 #
 # Optional configuration:
 #   - control debugging
@@ -596,5 +597,9 @@ sub userauth_check_acl($) {
 
   return($result);
 };
+
+
+## make module loader happy
+return 1;
 
 # vim: set noai ts=2 sw=2 et:
