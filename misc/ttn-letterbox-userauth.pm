@@ -103,6 +103,9 @@ $hooks{'userauth'}->{'auth_show'} = \&userauth_show;
 $hooks{'userauth'}->{'auth_check_acl'} = \&userauth_check_acl;
 
 ## translations
+$translations{'Login failed'}->{'de'} = "Anmeldung nicht erfolgreich";
+$translations{'username empty'}->{'de'} = "Benutzername nicht angegeben";
+$translations{'password empty'}->{'de'} = "Passwort nicht angegeben";
 $translations{'authenticated as user'}->{'de'} = "authentifiziert als Benutzer";
 $translations{'permitted for devices'}->{'de'} = "erlaubt für Geräte";
 $translations{'authentication cookie expires in days'}->{'de'} = "Authentifizierungs-Cookie noch gültig für Tage";
@@ -343,7 +346,7 @@ sub userauth_verify($) {
   };
 
   if (! defined $post_data{'username'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: username");
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("username empty") . ")</font>", "", "form data missing: username", $cookie, 10);
     exit 0;
   };
 
@@ -353,7 +356,7 @@ sub userauth_verify($) {
   };
 
   if (! defined $post_data{'password'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: password", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("password empty") . ")</font>", "", "form data missing: password", $cookie, 10);
     exit 0;
   };
 
