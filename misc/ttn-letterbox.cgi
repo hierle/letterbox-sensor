@@ -58,8 +58,8 @@
 # Supported Query String parameters (main, for modules see there)
 #   QUERY_STRING from CGI env + HTTP_X_TTN_LETTERBOX_QUERY_STRING from mod_include
 #   - dev_id=<dev_id>
-#   - details=[on|off]
-#   - autoreload=[on|off]
+#   - details=(on|off|l1)
+#   - autoreload=(on|off)
 #
 # Supported "Accept"
 #   text/plain: response in plain text
@@ -135,6 +135,7 @@
 # 20220219/bie: include device hash into module hook 'get_graphics' calls
 # 20220331/bie: define button height global, align button sizes
 # 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
+# 20220415/bie: add additional "details" level "l1" with limited display of details
 #
 # TODO:
 # - lock around file writes
@@ -241,6 +242,11 @@ my %payload_validator = (
   'threshold' => '[0-9]+',
   'voltage' => '[0-9.]+',
 );
+
+# details depending on detail level
+my @details_on = ("rssi", "snr", "tempC", "counter", "hardwareSerial"); # only displayed in case of "details" == "on"
+my @details_l1 = ("voltage", "threshold"); # only displayed in case of "details" == "l1" || "on"
+
 
 ####################
 ## basic error check
@@ -1194,6 +1200,7 @@ sub letter($) {
   my $toggle_color;
 
   my $button_size   = "width:" . $config{'button.width'} . "px;height:" . $config{'button.height'} . "px;";
+  my $button_size08 = "width:" . int($config{'button.width'} * 0.8) . "px;height:" . $config{'button.height'} . "px;";
   my $button_size13 = "width:" . int($config{'button.width'} * 1.3) . "px;height:" . $config{'button.height'} . "px;";
 
   ## button row #1
@@ -1229,19 +1236,22 @@ sub letter($) {
   $response .= "   </form>\n";
   $response .= "  </td>\n";
 
-  # print details=on|off button
+  # print details=on|off|l1 button
   $querystring_copy = { %querystring };
-  $querystring{'details'} = "off" if (!defined $querystring{'details'} || $querystring{'details'} !~ /^(on|off)$/o);
+  $querystring{'details'} = "off" if (!defined $querystring{'details'} || $querystring{'details'} !~ /^(on|off|l1)$/o);
   if ($querystring{'details'} eq "off") {
-    $querystring_copy->{'details'} = "on";
+    $querystring_copy->{'details'} = "l1";
     $toggle_color = "#E0E0E0";
-  } else {
+  } elsif ($querystring{'details'} eq "l1") {
+    $querystring_copy->{'details'} = "on";
+    $toggle_color = "#00A0A0";
+  } elsif ($querystring{'details'} eq "on") {
     $querystring_copy->{'details'} = "off";
     $toggle_color = "#00E000";
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
+  $response .= "    <input type=\"submit\" value=\"Details\" style=\"background-color:" . $toggle_color . ";" . $button_size08 . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };
@@ -1339,6 +1349,10 @@ sub letter($) {
   # row 3+
   for my $info (@info_array) {
     next if ((! defined $querystring{'details'} || $querystring{'details'} eq "off") && $info !~ /^(time|delta)/o);
+
+    if ($querystring{'details'} eq "l1") {
+      next if grep /^$info$/, @details_on;
+    };
 
     $response .= " <tr>";
     $response .= "<td><font size=-1>" . translate($info) . "</font></td>";

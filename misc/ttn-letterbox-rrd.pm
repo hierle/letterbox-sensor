@@ -9,11 +9,11 @@
 # Authors:  Dr. Peter Bieringer (bie)
 #
 # Supported Query String parameters
-#   - rrd=[on|off]
-#   - rrdRange=[day|week|month|year]
-#   - rrdShift=[0|-1|...|<min-depending-on-zoom>]
-#   - rrdZoom=[-4|...|0|...|+4]
-#   - details=[on|off]
+#   - rrd=(on|off)
+#   - rrdRange=(day|week|month|year)
+#   - rrdShift=(0|-1|...|<min-depending-on-zoom>)
+#   - rrdZoom=(-4|...|0|...|+4)
+#   - details=(on|off|l1)
 #
 # Required configuration:
 #   - data directory
@@ -48,7 +48,8 @@
 # 20220327/bie: implement shift, prepare zoom
 # 20220331/bie: align button sizes
 # 20220402/bie: activate change of shift/zoom text color in case not default
-# 20220404/bie: display RRDs for 'rssi', 'snr', 'voltage', 'tempC', 'sensor-zoom-empty' only in case of "details=on"
+# 20220404/bie: display RRDs for 'rssi', 'snr', 'voltage', 'tempC', 'sensor-zoom-empty' only in case of "details" != "off"
+# 20220415/bie: display RRDs for 'rssi', 'snr', 'tempC' only in case of "details" != "l1" || "off"
 
 use strict;
 use warnings;
@@ -96,7 +97,8 @@ $translations{'hour-of-day'}->{'de'} = "Stunde-vom-Tag";
 ## statistics
 my @rrd = ("sensor", "voltage", "tempC", "rssi", "snr"); # order must match RRD create definition
 
-my @rrd_details_on = ("rssi", "snr", "voltage", "tempC"); # RRDs which are only displayed in case of details=on
+my @rrd_details_on = ("rssi", "snr", "tempC"); # RRDs which are only displayed in case of "details" == "on"
+my @rrd_details_l1 = ("voltage"); # RRDs which are only displayed in case of "details" == "l1" || "on"
 
 
 ## sizes
@@ -388,12 +390,15 @@ sub rrd_get_graphics($$$) {
   } else {
     my @rrd_types = @rrd;
 
-    if ($querystring_hp->{'details'} eq "on") {
+    if (($querystring_hp->{'details'} eq "on") || ($querystring_hp->{'details'} eq "l1")) {
       push @rrd_types, "sensor-zoom-empty"; # extra graph
     };
 
     for my $type (@rrd_types) {
       if ($querystring_hp->{'details'} eq "off") {
+        next if grep /^$type$/, @rrd_details_on;
+        next if grep /^$type$/, @rrd_details_l1;
+      } elsif ($querystring_hp->{'details'} eq "l1") {
         next if grep /^$type$/, @rrd_details_on;
       };
 
