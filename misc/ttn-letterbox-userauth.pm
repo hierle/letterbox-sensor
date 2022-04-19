@@ -10,7 +10,8 @@
 #
 # Required configuration:
 #   - data directory
-#	datadir=<path>
+#   datadir=<path>
+#
 #
 # Optional configuration:
 #   - control debugging
@@ -18,6 +19,25 @@
 #
 #   - enable password change
 #	userauth.feature.changepw=1 (currently unfinished)
+#
+#
+# Optional CAPTCHA protection for 'login':
+#   supported services
+#     reCAPTCHA      : https://www.google.com/recaptcha/admin/create
+#     hCaptcha       : https://dashboard.hcaptcha.com/
+#     FriendlyCaptcha: https://friendlycaptcha.com/
+#
+#	  - enable captcha
+#	  userauth.captcha.enable=1
+#
+#	  - select captcha service
+#	  userauth.captcha.service=(reCAPTCHA-v3|reCAPTCHA-v2|reCAPTCHA-v2-Invisible|hCaptcha|hCaptcha-Invisible|FriendlyCaptcha)
+#
+#	  - captcha service site key
+#	  userauth.captcha.sitekey=<site key, format depends on service>
+#
+#	  - captcha service site key
+#	  userauth.captcha.secret=<secret, format depends on service>
 #
 #
 # user file:
@@ -58,6 +78,9 @@ use Data::UUID;
 use URI::Encode qw(uri_encode uri_decode);
 use Digest::SHA qw (sha512_base64 sha512);
 use Apache::Htpasswd;
+use LWP::UserAgent;
+use LWP::Protocol::https;
+use JSON;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt bcrypt_hash en_base64 de_base64);
 use Crypt::CBC;
 use utf8;
@@ -69,6 +92,7 @@ our %querystring;
 our $conffile;
 our $datadir;
 our %translations;
+our $language;
 
 # local data
 my $session_token_split = 40;
@@ -101,6 +125,9 @@ $hooks{'userauth'}->{'auth_show'} = \&userauth_show;
 $hooks{'userauth'}->{'auth_check_acl'} = \&userauth_check_acl;
 
 ## translations
+$translations{'Login failed'}->{'de'} = "Anmeldung nicht erfolgreich";
+$translations{'username empty'}->{'de'} = "Benutzername nicht angegeben";
+$translations{'password empty'}->{'de'} = "Passwort nicht angegeben";
 $translations{'authenticated as user'}->{'de'} = "authentifiziert als Benutzer";
 $translations{'permitted for devices'}->{'de'} = "erlaubt für Geräte";
 $translations{'authentication cookie expires in days'}->{'de'} = "Authentifizierungs-Cookie noch gültig für Tage";
@@ -116,6 +143,165 @@ $translations{'Logout already done'}->{'de'} = "Abmeldung bereits erfolgt";
 $translations{'username/password not accepted'}->{'de'} = "Benutzername/Passwort nicht akzeptiert";
 $translations{'will be redirected back'}->{'de'} = "wird nun zurückgeleitet";
 
+## CAPTCHA  service definitions, selected by 'userauth.captcha.service'
+my %captcha = (
+  'reCAPTCHA-v3' => {
+    # https://developers.google.com/recaptcha/docs/v3
+    'ScriptURL'     => 'https://www.google.com/recaptcha/api.js?hl=<LANG>',
+    'WidgetCode'    => 'class="g-recaptcha" data-sitekey="<SITEKEY>" data-badge="inline" data-callback="onSubmit" data-action="submit"',
+    'VerifyURL'     => 'https://www.google.com/recaptcha/api/siteverify',
+    'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
+    'ResponseField' => 'g-recaptcha-response',
+    'Invisible'     => '1',
+    'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
+  },
+  'reCAPTCHA-v2-Invisible' => {
+    # https://developers.google.com/recaptcha/docs/invisible
+    'ScriptURL'     => 'https://www.google.com/recaptcha/api.js?hl=<LANG>',
+    'WidgetCode'    => 'class="g-recaptcha" data-sitekey="<SITEKEY>" data-size="invisible" data-badge="inline" data-callback="onSubmit"',
+    'VerifyURL'     => 'https://www.google.com/recaptcha/api/siteverify',
+    'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
+    'ResponseField' => 'g-recaptcha-response',
+    'Invisible'     => '1',
+    'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
+  },
+  'reCAPTCHA-v2' => {
+    # https://developers.google.com/recaptcha/docs/display
+    'ScriptURL'     => 'https://www.google.com/recaptcha/api.js?hl=<LANG>',
+    'WidgetCode'    => 'class="g-recaptcha" data-sitekey="<SITEKEY>" data-callback="enableSubmitBtn"',
+    'VerifyURL'     => 'https://www.google.com/recaptcha/api/siteverify',
+    'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
+    'ResponseField' => 'g-recaptcha-response',
+    'Invisible'     => '0',
+    'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
+  },
+  'hCaptcha-Invisible' => {
+    # https://docs.hcaptcha.com/invisible
+    'ScriptURL'     => 'https://js.hcaptcha.com/1/api.js?hl=<LANG>',
+    'WidgetCode'    => 'class="h-captcha" data-sitekey="<SITEKEY>" data-size="invisible" data-callback="onSubmit"',
+    'VerifyURL'     => 'https://hcaptcha.com/siteverify',
+    'VerifyPOST'    =>  {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'sitekey' => '<SITEKEY>', 'remoteip' => '<REMOTEIP>'},
+    'ResponseField' => 'h-captcha-response',
+    'Invisible'     => 'This site is protected by hCaptcha and its<br /> <a target="_blank" href="https://hcaptcha.com/privacy">Privacy Policy</a> and <a target="_blank" href="https://hcaptcha.com/terms">Terms of Service</a> apply.',
+    'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
+  },
+  'hCaptcha' => {
+    # https://docs.hcaptcha.com/
+    'ScriptURL'     => 'https://js.hcaptcha.com/1/api.js?hl=<LANG>',
+    'WidgetCode'    => 'class="h-captcha" data-sitekey="<SITEKEY>" data-callback="enableSubmitBtn"',
+    'VerifyURL'     => 'https://hcaptcha.com/siteverify',
+    'VerifyPOST'    =>  {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'sitekey' => '<SITEKEY>', 'remoteip' => '<REMOTEIP>'},
+    'ResponseField' => 'h-captcha-response',
+    'Invisible'     => '0',
+    'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
+  },
+  'FriendlyCaptcha' => {
+    # https://docs.friendlycaptcha.com/
+    'ScriptURL'     => 'https://cdn.jsdelivr.net/npm/friendly-challenge@0.9.1/widget.min.js',
+    'WidgetCode'    => 'class="frc-captcha" data-sitekey="<SITEKEY>" data-lang="<LANG>" data-start="none" data-callback="enableSubmitBtn"',
+    'VerifyURL'     => 'https://api.friendlycaptcha.com/api/v1/siteverify',
+    'VerifyPOST'    => {'secret' => '<SECRET>', 'solution' => '<RESPONSE>', 'sitekey' => '<SITEKEY>'},
+    'ResponseField' => 'frc-captcha-solution',
+    'Invisible'     => '0',
+    'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
+  }
+);
+
+#	captcha support status
+my $captcha_supported = 0;
+my $captcha_check_result = 'UNKNOWN';
+
+##############
+## CAPTCHA functions
+##############
+
+## replace tokens in given string
+# in:
+#  arg#1: string with tokens
+#  arg#2: CAPTCHA response (optional)
+# out: string with replaced tokens
+sub captcha_string_token_replace($;$) {
+  my $string = $_[0];
+  my $response = $_[1]; # optional
+
+  $string =~ s/<SITEKEY>/$config{'userauth.captcha.sitekey'}/g;
+  $string =~ s/<SECRET>/$config{'userauth.captcha.secret'}/g;
+  $string =~ s/<LANG>/$language/g;
+  $string =~ s/<REMOTEIP>/$ENV{REMOTE_ADDR}/g;
+
+  $string =~ s/<RESPONSE>/$_[1]/g if (defined $_[1]);
+
+  return $string;
+};
+
+## check CAPTCHA
+# exit in case of error occurs with error message/log entry
+# silent return in case of server/request issue
+sub userauth_check_captcha() {
+  logging("userauth_check_captcha") if defined $config{'userauth.debug'};
+
+  return "NOT-REQUIRED" unless ($post_data{'action'} eq "login");
+  return "NOT-ENABLED" unless ($captcha_supported == 1);
+
+  # check whether captcha response is contained in POST data
+  if (! defined $post_data{$captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}}) {
+    # POST data is missing response field content
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response missing in POST data: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, undef, 1, 1);
+    exit 0;
+  };
+
+  my $response_content = uri_decode($post_data{$captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}});
+
+  if ($response_content eq "") {
+    # POST data response field content is empty
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response empty in POST data field: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, undef, 1);
+    exit 0;
+  };
+
+  # verify captcha response
+  logging("userauth_check_captcha: verification response=" . $response_content) if defined $config{'userauth.debug'};
+
+  my $ua = LWP::UserAgent->new;
+  my $url = $captcha{$config{'userauth.captcha.service'}}->{'VerifyURL'};
+  my $req = HTTP::Request->new(POST => $url);
+  my %form;
+  for my $field (keys %{$captcha{$config{'userauth.captcha.service'}}->{'VerifyPOST'}}) {
+    # compose form depending of captcha service
+    $form{$field} = captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'VerifyPOST'}->{$field}, $response_content);
+    logging("user '" . $post_data{'username'} . "' captcha verification form entry: $field=" . $form{$field}) if defined $config{'userauth.debug'};
+  };
+
+  my $res = $ua->post($url, \%form);
+  if ($res->is_server_error) {
+    # silent skip CAPTCHA check in case of server issue
+    logging("user '" . $post_data{'username'} . "' captcha: verification request skipped for: " . $config{'userauth.captcha.service'} . " (status_line='" . $res->status_line . "')");
+    return "SERVER-ERROR";
+  };
+
+  if (! $res->is_success) {
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification request not sucessful: " . $config{'userauth.captcha.service'} . " (content='" . $res->status_line . "')", undef, 1);
+    exit 0;
+  };
+
+  my $content = eval{ decode_json($res->decoded_content()) };
+  if ($@) {
+    my $content_log = $res->decoded_content(); $content_log =~ s/\n//og; # join multiline content
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "'captcha verification response is not JSON: " . $config{'userauth.captcha.service'} . " (content='" . $content_log . "')", undef, 1);
+    exit 0;
+  };
+
+  if ($content->{'success'} !~ /^(1|true)$/o) {
+    for my $entry (keys %$content) {
+      logging("user CAPTCHA verification JSON response: $entry=" . $content->{$entry}) if defined $config{'userauth.debug'};
+    };
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'} . " (content='" . $res->decoded_content() . "')", undef, 1);
+    exit 0;
+  };
+
+  logging("user '" . $post_data{'username'} . "' captcha: verification successful: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
+  return "OK";
+};
+
 
 ##############
 ## initialization
@@ -126,6 +312,33 @@ sub userauth_init() {
   };
 
   $userfile = $datadir . "/ttn.users.list";
+
+  # CAPTCHA service / check for requirements
+  if (defined $config{'userauth.captcha.enable'} && $config{'userauth.captcha.enable'} eq "1") {
+    # enabled
+    if (defined $config{'userauth.captcha.service'} && length($config{'userauth.captcha.service'}) > 0) {
+      # service defined
+      if (defined $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) {
+        # URL defined -> selected service supported
+        if (defined $config{'userauth.captcha.sitekey'} && length($config{'userauth.captcha.sitekey'}) > 0) {
+          # 'sitekey' configured
+          if (defined $config{'userauth.captcha.secret'} && length($config{'userauth.captcha.secret'}) > 0) {
+            # 'secret' configured
+            $captcha_supported = 1; # all requirements fulfilled
+            logging("userauth/init: captcha service enabled: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
+          } else {
+            logging("userauth/init: captcha service enabled but 'secret' missing/empty in config: userauth.captcha.secret");
+          };
+        } else {
+          logging("userauth/init: captcha service enabled but 'sitekey' missing/empty in config: userauth.captcha.sitekey");
+        };
+      } else {
+        logging("userauth/init: captcha service enabled, but not supported: " . $config{'userauth.captcha.service'});
+      };
+    } else {
+      logging("userauth/init: captcha enabled, but 'service' missing/empty in config: userauth.captcha.service");
+    };
+  };
 
   logging("userauth/init: called") if defined $config{'userauth.debug'};
 };
@@ -194,7 +407,7 @@ sub userauth_generate() {
   if (! defined $user_data{'username'} || $user_data{'username'} eq "") {
     my $response;
     $response .= "   <b>" . translate("Authentication required") . "</b>\n";
-    $response .= "   <form method=\"post\">\n";
+    $response .= "   <form id=\"submitForm\" method=\"post\" accept-charset=\"utf-8\">\n";
     $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
     $response .= "     <tr>\n";
     $response .= "      <td>" . translate("Username") . ":</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
@@ -202,14 +415,62 @@ sub userauth_generate() {
     $response .= "     <tr>\n";
     $response .= "      <td>" . translate("Password"). ":</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
-    $response .= "     <tr>\n";
-    $response .= "      <td></td><td><input type=\"submit\" value=\"" . translate("Login") . "\" style=\"background-color:#00A000;width:100px;height:50px;\"></td>\n";
-    $response .= "     </tr>\n";
+
+    # CAPTCHA service form extension
+    if ($captcha_supported == 1) {
+      $response .= "     <tr>\n";
+      $response .= "      <td colspan=\"2\">\n";
+      $response .= "       <noscript>You need Javascript for CAPTCHA verification to submit this form.</noscript>\n";
+      $response .= "       <script src=\"" . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) . "\" async defer></script>\n";
+      if ($captcha{$config{'userauth.captcha.service'}}->{'Invisible'} eq "0") {
+        # visible CAPTCHA
+        $response .= "       <div " . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'WidgetCode'}) . "></div>\n";
+      };
+      $response .= "      </td>\n";
+      $response .= "     </tr>\n";
+      $response .= "     <tr>\n";
+      $response .= "      <td></td>\n";
+      $response .= "      <td>\n";
+
+      if ($captcha{$config{'userauth.captcha.service'}}->{'Invisible'} !~ /^(0|1)$/o) {
+        # append related HTML message
+        $response .= "       <div><font size=\"-2\">" . $captcha{$config{'userauth.captcha.service'}}->{'Invisible'} . "</font></div>\n";
+      };
+
+      # button
+      $response .= "       <button";
+      if ($captcha{$config{'userauth.captcha.service'}}->{'Invisible'} ne "0") {
+        # invisible CAPTCHA
+        $response .= " " . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'WidgetCode'});
+      } else {
+        $response .= " disabled";
+      };
+      $response .= " id=\"submitBtn\" type=\"submit\" style=\"width:100px;height:50px;\">" . translate("Login") . "</button>\n";
+
+      $response .= "      </td>\n";
+      $response .= "     </tr>\n";
+    } else {
+      $response .= "     <tr>\n";
+      $response .= "      <td></td><td><input id=\"submitBtn\" type=\"submit\" value=\"" . translate("Login") . "\" style=\"width:100px;height:50px;\"></td>\n";
+      $response .= "     </tr>\n";
+    };
+
     $response .= "    </table>\n";
     $response .= "    <input type=\"text\" name=\"session_token_form\" value=\"" . $session_token_form . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"rand\" value=\"" . $rand . "\" hidden>\n";
     $response .= "    <input type=\"text\" name=\"action\" value=\"login\" hidden>\n";
+
+    # CAPTCHA service script extension
+    if ($captcha_supported == 1) {
+      $response .= qq|
+    <script>
+      $captcha{$config{'userauth.captcha.service'}}->{'ScriptCode'}
+    </script>
+|;
     $response .= "   </form>\n";
+
+    };
+
     my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "session_token_cookie=" . $session_token_cookie . "&time=" . $time, -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
     response(200, $response, "", "", $cookie);
     exit 0;
@@ -341,7 +602,7 @@ sub userauth_verify($) {
   };
 
   if (! defined $post_data{'username'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: username");
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("username empty") . ")</font>", "", "form data missing: username", $cookie, 10);
     exit 0;
   };
 
@@ -351,7 +612,7 @@ sub userauth_verify($) {
   };
 
   if (! defined $post_data{'password'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: password", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("password empty") . ")</font>", "", "form data missing: password", $cookie, 10);
     exit 0;
   };
 
@@ -383,6 +644,9 @@ sub userauth_verify($) {
     response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "no htpasswd user file found: " . $userfile);
     exit 0;
   };
+
+  # check CAPTCHA (will exit inside script in case of verification errors)
+  $captcha_check_result = userauth_check_captcha();
 
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
@@ -429,7 +693,12 @@ sub userauth_verify($) {
   $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "ver=1&enc=" . $auth_token, -expires => '+' . $auth_token_lifetime . 's', -secure => 1, -httponly => 1);
 
   $user_data{'userauth'} = $post_data{'username'};
-  logging("user successfully authenticated: " . $post_data{'username'});
+
+  if ($captcha_supported == 1) {
+    logging("user successfully authenticated (" . $config{'userauth.captcha.service'} . "=" . $captcha_check_result . "): " . $post_data{'username'});
+  } else {
+    logging("user successfully authenticated: " . $post_data{'username'});
+  };
 
   response(200, "<font color=\"green\">" . translate("Login successful") . " (" . translate("will be redirected back") . ")</font>", "", "", $cookie, 1);
   exit 0;
@@ -596,5 +865,9 @@ sub userauth_check_acl($) {
 
   return($result);
 };
+
+
+## make module loader happy
+return 1;
 
 # vim: set noai ts=2 sw=2 et:

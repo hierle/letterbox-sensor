@@ -26,8 +26,9 @@
 #   - installation of following usually not by default installed Perl modules (EL8/Fedora35)
 #       perl-Data-UUID
 #       perl-URI-Encode
-#       perl-Apache-Htpasswd
-#       perl-Authen-Passphrase or perl-Crypt-SaltedHash
+#       perl-Apache-Htpasswd (for user authentication)
+#       perl-Authen-Passphrase or perl-Crypt-SaltedHash (for user authentication)
+#       perl-LWP-Protocol-https (for user CAPTCHA verification)
 #
 # Installation
 #   - store CGI into cgi-bin directory
@@ -136,6 +137,7 @@
 # 20220331/bie: define button height global, align button sizes
 # 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
 # 20220415/bie: add additional "details" level "l1" with limited display of details
+# 20220417/bie: extend query string=value pattern check
 #
 # TODO:
 # - lock around file writes
@@ -530,7 +532,7 @@ sub parse_querystring(;$$) {
 
   if (defined $qs) {
     foreach my $query_stringlet (split /[\?\&]/, $qs) {
-      if ($query_stringlet !~ /^([[:alnum:]_]+)=([[:alnum:].\-:=\/\$%+]+)$/o) {
+      if ($query_stringlet !~ /^([[:alnum:]_\-]+)=([[:alnum:].\-:=\/\$%+_]+)$/o) {
         # ignore improper stringlet
         next;
       };
