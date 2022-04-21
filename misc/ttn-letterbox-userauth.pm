@@ -71,6 +71,7 @@
 # 20191119/bie: start implementing password change (still unfinished)
 # 20191214/bie: add transation "de"
 # 20220218/bie: remove support of debug option by environment, align debug options
+# 20220418/bie: add CAPTCHA support with external services (Google, hCaptcha, FriendlyCaptcha)
 
 use strict;
 use warnings;
