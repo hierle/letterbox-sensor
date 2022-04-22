@@ -22,22 +22,28 @@
 #
 #
 # Optional CAPTCHA protection for 'login':
-#   supported services
+#   supported external services
 #     reCAPTCHA      : https://www.google.com/recaptcha/admin/create
 #     hCaptcha       : https://dashboard.hcaptcha.com/
 #     FriendlyCaptcha: https://friendlycaptcha.com/
+#
+#   supported internal implementations
+#     GD::SecurityImage (internal)
 #
 #	  - enable captcha
 #	  userauth.captcha.enable=1
 #
 #	  - select captcha service
-#	  userauth.captcha.service=(reCAPTCHA-v3|reCAPTCHA-v2|reCAPTCHA-v2-Invisible|hCaptcha|hCaptcha-Invisible|FriendlyCaptcha)
+#	  userauth.captcha.service=(reCAPTCHA-v3|reCAPTCHA-v2|reCAPTCHA-v2-Invisible|hCaptcha|hCaptcha-Invisible|FriendlyCaptcha|GD::SecurityImage)
 #
-#	  - captcha service site key
+#	  - captcha service site key (only required for external services)
 #	  userauth.captcha.sitekey=<site key, format depends on service>
 #
-#	  - captcha service site key
+#	  - captcha service site key (only required for external service)s
 #	  userauth.captcha.secret=<secret, format depends on service>
+#
+#	  - captcha service TrueType font (only optional for internal services)
+#	  userauth.captcha.ttf=<ttf-file> (default: $captcha_font -> see below)
 #
 #
 # user file:
@@ -219,12 +225,20 @@ my %captcha = (
     'External'      => '1',
     'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
+  },
+  'GD::SecurityImage' => {
+    # GD::SecurityImage
+    'Modules'       => [ 'GD::SecurityImage' ],
+    'ResponseField' => 'internal-captcha-response',
+    'Invisible'     => '0',
+    'External'      => '0',
   }
 );
 
 #	captcha support status
 my $captcha_supported = 0;
 my $captcha_check_result = 'UNKNOWN';
+my $captcha_font = '/usr/share/fonts/open-sans/OpenSans-Regular.ttf';
 
 ##############
 ## CAPTCHA functions
@@ -279,6 +293,8 @@ sub userauth_check_captcha($$) {
   # verify captcha response
   logging("userauth_check_captcha: verification response=" . $response_content) if defined $config{'userauth.debug'};
 
+  if ($captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
+    ## EXTERNAL
   my $ua = LWP::UserAgent->new;
   my $url = $captcha{$config{'userauth.captcha.service'}}->{'VerifyURL'};
   my $req = HTTP::Request->new(POST => $url);
@@ -316,6 +332,26 @@ sub userauth_check_captcha($$) {
     exit 0;
   };
 
+  } else {
+    ## INTERNAL
+    if (! defined $cookie_data_h->{'captcha_hash'}) {
+      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: captcha_hash", $cookie, 10);
+      exit 0;
+    };
+
+    if ($cookie_data{'captcha_hash'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
+      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: captcha_hash", $cookie, 10);
+      exit 0;
+    };
+
+    my $hash = sha512_base64("secret=" . $config{'uuid'} . ":time=" . $cookie_data_h->{'time'} . ":random=" . $response_content);
+
+    if ($hash ne $cookie_data_h->{'captcha_hash'}) {
+      response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'}, $cookie, 10);
+      exit 0;
+    };
+  };
+
   logging("user '" . $post_data{'username'} . "' captcha: verification successful: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
   return "OK";
 };
@@ -351,6 +387,29 @@ sub init_captcha_service_external() {
   return 1;
 };
 
+
+##############
+## init CAPTCHA service "Internal"
+##############
+sub init_captcha_service_internal() {
+  # check for font
+  if (defined $config{'userauth.captcha.ttf'} && length($config{'userauth.captcha.ttf'}) > 0) {
+    if (! -e $config{'userauth.captcha.ttf'}) {
+      logging("userauth/init: captcha service enabled, but configured font not found: " . $config{'userauth.captcha.ttffont'});
+      return 0;
+    };
+
+    $captcha_font = $config{'userauth.captcha.ttf'};
+  };
+
+  if (! -e $captcha_font) {
+    logging("userauth/init: captcha service enabled, but required font (default) not found: " . $captcha_font);
+    return 0;
+  };
+
+  return 1;
+};
+
 ##############
 ## initialization
 ##############
@@ -369,6 +428,8 @@ sub userauth_init() {
       if (defined $captcha{$config{'userauth.captcha.service'}}->{'External'}) {
         if ($captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
           $captcha_supported = init_captcha_service_external();
+        } else {
+          $captcha_supported = init_captcha_service_internal();
         };
       } else {
         logging("userauth/init: captcha service enabled but 'External' missing (FIX-CODE): " . $config{'userauth.captcha.service'});
@@ -424,6 +485,51 @@ sub userauth_check() {
   if (! defined $user_data{'username'} && (! defined $post_data{'action'} || $post_data{'action'} ne "login")) {
     userauth_generate();
   };
+};
+
+## INTERNAL CAPTCHA creation
+# GD::SecurityImage: inspired by CGI::Application::Plugin::CAPTCHA
+sub captcha_internal_create($$) {
+
+  my $time = $_[0];
+  my $service = $_[1];
+
+  my ($image_data, $mime_type, $random_string);
+
+  if ($service eq "GD::SecurityImage") {
+    GD::SecurityImage->import;
+    my $image = GD::SecurityImage->new(
+      width    => 200,
+      height   => 60,
+      ptsize   => 16,
+      lines    => 3,
+      font     => $captcha_font,
+      bgcolor  => "#FFFF00",
+      frame    => 0,
+      angle    => 0,
+      scramble => 1,
+      send_ctobg => 1,
+      rnd_data => [ '2', '3', '4', '8', '9', 'A', 'C', 'E', 'F', 'H', 'K', 'M', 'N', 'T', 'W', 'Z' ]
+    );
+
+    $image->random();
+
+    $image->create(
+      'ttf' => 'blank',
+      'undef',
+    );
+
+    $image->particle(2500);
+
+    ($image_data, $mime_type, $random_string) = $image->out;
+  };
+
+  my $hash = sha512_base64("secret=" . $config{'uuid'} . ":time=" . $time . ":random=" . $random_string);
+
+  return (
+    'imagedata' => "data:image/" . $mime_type . ";base64," . encode_base64($image_data),
+    'hash'      => $hash
+  );
 };
 
 
@@ -514,6 +620,16 @@ sub userauth_generate() {
       $response .= "      </td>\n";
       $response .= "     </tr>\n";
     } else {
+      if ($captcha_supported == 1 && $captcha{$config{'userauth.captcha.service'}}->{'External'} ne "1") {
+        ## INTERNAL CAPTCHA
+        $response .= "      <td>\n";
+        my %captcha_internal = captcha_internal_create($time, $config{'userauth.captcha.service'});
+        $response .= '<img alt="CAPTCHA" src="' . $captcha_internal{'imagedata'} . '">';
+        $response .= "      </td>\n";
+        $response .= "      <td><input id=\"internal-captcha-response\" type=\"text\" name=\"internal-captcha-response\" style=\"width:200px;height:40px;\"></td>\n";
+        push @cookie_values, "captcha_hash=" . $captcha_internal{'hash'};
+      };
+
       $response .= "     <tr>\n";
       $response .= "      <td></td><td><input id=\"submitBtn\" type=\"submit\" value=\"" . translate("Login") . "\" style=\"width:100px;height:50px;\"></td>\n";
       $response .= "     </tr>\n";
