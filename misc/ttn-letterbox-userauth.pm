@@ -80,12 +80,13 @@ use Data::UUID;
 use URI::Encode qw(uri_encode uri_decode);
 use Digest::SHA qw (sha512_base64 sha512);
 use Apache::Htpasswd;
-use LWP::UserAgent;
-use LWP::Protocol::https;
 use JSON;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt bcrypt_hash en_base64 de_base64);
 use Crypt::CBC;
 use utf8;
+use Module::Load;
+use Module::Load::Conditional;
+
 
 ## globals
 our %hooks;
@@ -155,6 +156,8 @@ my %captcha = (
     'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
     'ResponseField' => 'g-recaptcha-response',
     'Invisible'     => '1',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
   },
   'reCAPTCHA-v2-Invisible' => {
@@ -165,6 +168,8 @@ my %captcha = (
     'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
     'ResponseField' => 'g-recaptcha-response',
     'Invisible'     => '1',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
   },
   'reCAPTCHA-v2' => {
@@ -175,6 +180,8 @@ my %captcha = (
     'VerifyPOST'    => {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'remoteip' => '<REMOTEIP>'},
     'ResponseField' => 'g-recaptcha-response',
     'Invisible'     => '0',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
   },
   'hCaptcha-Invisible' => {
@@ -185,6 +192,8 @@ my %captcha = (
     'VerifyPOST'    =>  {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'sitekey' => '<SITEKEY>', 'remoteip' => '<REMOTEIP>'},
     'ResponseField' => 'h-captcha-response',
     'Invisible'     => 'This site is protected by hCaptcha and its<br /> <a target="_blank" href="https://hcaptcha.com/privacy">Privacy Policy</a> and <a target="_blank" href="https://hcaptcha.com/terms">Terms of Service</a> apply.',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function onSubmit(token) { document.getElementById("submitForm").submit(); };'
   },
   'hCaptcha' => {
@@ -195,6 +204,8 @@ my %captcha = (
     'VerifyPOST'    =>  {'secret' => '<SECRET>', 'response' => '<RESPONSE>', 'sitekey' => '<SITEKEY>', 'remoteip' => '<REMOTEIP>'},
     'ResponseField' => 'h-captcha-response',
     'Invisible'     => '0',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
   },
   'FriendlyCaptcha' => {
@@ -205,6 +216,8 @@ my %captcha = (
     'VerifyPOST'    => {'secret' => '<SECRET>', 'solution' => '<RESPONSE>', 'sitekey' => '<SITEKEY>'},
     'ResponseField' => 'frc-captcha-solution',
     'Invisible'     => '0',
+    'External'      => '1',
+    'Modules'       => [ 'LWP::UserAgent', 'LWP::Protocol::https' ],
     'ScriptCode'    => 'function enableSubmitBtn() { document.getElementById("submitBtn").disabled = false; };'
   }
 );
@@ -309,6 +322,36 @@ sub userauth_check_captcha($$) {
 
 
 ##############
+## init CAPTCHA service "External"
+##############
+sub init_captcha_service_external() {
+  # 'ScriptURL' defined?
+  if (! defined $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) {
+    return 0;
+  };
+
+  # ScriptURL' https?
+  if ($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'} !~ /^https:\/\//o) {
+    logging("userauth/init: captcha service enabled, but unsupported 'ScriptURL' found (FIX CODE): " . $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'});
+    return 0;
+  };
+
+  # 'sitekey' configured?
+  if (!(defined $config{'userauth.captcha.sitekey'} && length($config{'userauth.captcha.sitekey'}) > 0)) {
+    logging("userauth/init: captcha service enabled but 'sitekey' missing/empty in config: userauth.captcha.sitekey");
+    return 0;
+  };
+
+  # 'secret' configured?
+  if (!(defined $config{'userauth.captcha.secret'} && length($config{'userauth.captcha.secret'}) > 0)) {
+    logging("userauth/init: captcha service enabled but 'secret' missing/empty in config: userauth.captcha.secret");
+    return 0;
+  };
+
+  return 1;
+};
+
+##############
 ## initialization
 ##############
 sub userauth_init() {
@@ -323,25 +366,35 @@ sub userauth_init() {
     # enabled
     if (defined $config{'userauth.captcha.service'} && length($config{'userauth.captcha.service'}) > 0) {
       # service defined
-      if (defined $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) {
-        # URL defined -> selected service supported
-        if (defined $config{'userauth.captcha.sitekey'} && length($config{'userauth.captcha.sitekey'}) > 0) {
-          # 'sitekey' configured
-          if (defined $config{'userauth.captcha.secret'} && length($config{'userauth.captcha.secret'}) > 0) {
-            # 'secret' configured
-            $captcha_supported = 1; # all requirements fulfilled
-            logging("userauth/init: captcha service enabled: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
-          } else {
-            logging("userauth/init: captcha service enabled but 'secret' missing/empty in config: userauth.captcha.secret");
-          };
-        } else {
-          logging("userauth/init: captcha service enabled but 'sitekey' missing/empty in config: userauth.captcha.sitekey");
+      if (defined $captcha{$config{'userauth.captcha.service'}}->{'External'}) {
+        if ($captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
+          $captcha_supported = init_captcha_service_external();
         };
       } else {
-        logging("userauth/init: captcha service enabled, but not supported: " . $config{'userauth.captcha.service'});
+        logging("userauth/init: captcha service enabled but 'External' missing (FIX-CODE): " . $config{'userauth.captcha.service'});
       };
+    };
+
+    if ($captcha_supported == 1) {
+      # check for required modules
+      if (defined $captcha{$config{'userauth.captcha.service'}}->{'Modules'}) {
+        foreach my $module (@{$captcha{$config{'userauth.captcha.service'}}->{'Modules'}}) {
+          logging("userauth/init: captcha service check required module: " . $module);
+          my $result = Module::Load::Conditional::check_install(module => $module);
+          if (! defined $result) {
+            logging("userauth/init: captcha service not enabled, module load problem: " . $config{'userauth.captcha.service'} . " (" . $module . ")");
+            $captcha_supported = 0;
+          } else {
+            Module::Load::load($module);
+          };
+        };
+      };
+    };
+
+    if ($captcha_supported == 1) {
+      logging("userauth/init: captcha service enabled: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
     } else {
-      logging("userauth/init: captcha enabled, but 'service' missing/empty in config: userauth.captcha.service");
+      logging("userauth/init: captcha service not enabled: " . $config{'userauth.captcha.service'});
     };
   };
 
