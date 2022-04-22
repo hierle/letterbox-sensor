@@ -152,6 +152,7 @@ use POSIX qw(strftime);
 use JSON;
 use Date::Parse;
 use I18N::LangTags::Detect;
+use Getopt::Std;
 use utf8;
 
 # autodetection of supported modules for Salted Hash
@@ -251,6 +252,38 @@ my @details_l1 = ("voltage", "threshold"); # only displayed in case of "details"
 
 
 ####################
+## option handling (for testing)
+####################
+sub help() {
+  print qq{
+Usage:
+    -c <FILE>   config file
+    -h|-?       this online help
+};
+};
+
+my %opts;
+if (! getopts('h\?c:', \%opts)) {
+  print "Error in command line arguments (see -h|?)\n";
+  exit 1;
+};
+
+if (defined $opts{'h'} || defined $opts{'?'}) {
+  help();
+  exit 0;
+};
+
+# config file
+if (defined $opts{'c'}) {
+  if (! -e $opts{'c'}) {
+    logging("provided config file by option -c <FILE> is not existing: ". $opts{'c'});
+    exit 1;
+  };
+  $conffile = $opts{'c'};
+};
+
+
+####################
 ## basic error check
 ####################
 
@@ -270,7 +303,7 @@ my $confdir = $ENV{'DOCUMENT_ROOT'} . "/../conf"; # default
 $datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
 
 # read optional config
-$conffile = $confdir . "/ttn-letterbox.conf";
+$conffile = $confdir . "/ttn-letterbox.conf" if (! defined $conffile);
 
 if (-e $conffile) {
   if (! -r $conffile) {
