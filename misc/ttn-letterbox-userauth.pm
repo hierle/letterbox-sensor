@@ -463,7 +463,7 @@ sub userauth_generate() {
     $response .= "    <input type=\"text\" name=\"action\" value=\"login\" hidden>\n";
 
     # CAPTCHA service script extension
-    if ($captcha_supported == 1) {
+    if ($captcha_supported == 1 && defined $captcha{$config{'userauth.captcha.service'}}->{'ScriptCode'}) {
       $response .= qq|
     <script>
       $captcha{$config{'userauth.captcha.service'}}->{'ScriptCode'}
