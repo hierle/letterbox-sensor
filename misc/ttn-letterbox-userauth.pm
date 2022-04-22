@@ -562,6 +562,7 @@ sub userauth_verify($) {
     exit 0;
   };
 
+  # check session token in cookie
   if (! defined $cookie_data{'session_token_cookie'}) {
     response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
     exit 0;
@@ -572,6 +573,7 @@ sub userauth_verify($) {
     exit 0;
   };
 
+  # check time token in cookie
   if (! defined $cookie_data{'time'}) {
     response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: time", $cookie, 10);
     exit 0;
