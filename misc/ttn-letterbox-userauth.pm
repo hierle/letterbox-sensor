@@ -478,15 +478,18 @@ sub userauth_generate() {
     $response .= "     </tr>\n";
 
     # CAPTCHA service form extension
-    if ($captcha_supported == 1) {
+    if ($captcha_supported == 1 && $captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
       $response .= "     <tr>\n";
+
       $response .= "      <td colspan=\"2\">\n";
       $response .= "       <noscript>You need Javascript for CAPTCHA verification to submit this form.</noscript>\n";
       $response .= "       <script src=\"" . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) . "\" async defer></script>\n";
+
       if ($captcha{$config{'userauth.captcha.service'}}->{'Invisible'} eq "0") {
         # visible CAPTCHA
         $response .= "       <div " . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'WidgetCode'}) . "></div>\n";
       };
+
       $response .= "      </td>\n";
       $response .= "     </tr>\n";
       $response .= "     <tr>\n";
