@@ -394,6 +394,9 @@ sub userauth_generate() {
     $uuid = $ug->from_string($config{'uuid'});
   };
 
+  # cookie value
+  my @cookie_values;
+
   # generate session token
   my $time = time;
   my $rand = rand();
@@ -476,7 +479,10 @@ sub userauth_generate() {
 
     };
 
-    my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "session_token_cookie=" . $session_token_cookie . "&time=" . $time, -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
+    push @cookie_values, "session_token_cookie=" . $session_token_cookie;
+    push @cookie_values, "&time=" . $time;
+
+    my $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => join('&', @cookie_values), -secure => 1, -expires => '+' . $session_token_lifetime . 's', -httponly => 1);
     response(200, $response, "", "", $cookie);
     exit 0;
   };
