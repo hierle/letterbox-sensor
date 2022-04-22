@@ -239,8 +239,11 @@ sub captcha_string_token_replace($;$) {
 ## check CAPTCHA
 # exit in case of error occurs with error message/log entry
 # silent return in case of server/request issue
-sub userauth_check_captcha() {
+sub userauth_check_captcha($$) {
   logging("userauth_check_captcha") if defined $config{'userauth.debug'};
+
+  my $cookie = $_[0];
+  my $cookie_data_h = $_[1];
 
   return "NOT-REQUIRED" unless ($post_data{'action'} eq "login");
   return "NOT-ENABLED" unless ($captcha_supported == 1);
@@ -256,7 +259,7 @@ sub userauth_check_captcha() {
 
   if ($response_content eq "") {
     # POST data response field content is empty
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response empty in POST data field: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, undef, 1);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response empty in POST data field: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, $cookie, 10);
     exit 0;
   };
 
@@ -281,14 +284,14 @@ sub userauth_check_captcha() {
   };
 
   if (! $res->is_success) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification request not sucessful: " . $config{'userauth.captcha.service'} . " (content='" . $res->status_line . "')", undef, 1);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification request not sucessful: " . $config{'userauth.captcha.service'} . " (content='" . $res->status_line . "')", $cookie, 10);
     exit 0;
   };
 
   my $content = eval{ decode_json($res->decoded_content()) };
   if ($@) {
     my $content_log = $res->decoded_content(); $content_log =~ s/\n//og; # join multiline content
-    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "'captcha verification response is not JSON: " . $config{'userauth.captcha.service'} . " (content='" . $content_log . "')", undef, 1);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "'captcha verification response is not JSON: " . $config{'userauth.captcha.service'} . " (content='" . $content_log . "')", $cookie, 10);
     exit 0;
   };
 
@@ -296,7 +299,7 @@ sub userauth_check_captcha() {
     for my $entry (keys %$content) {
       logging("user CAPTCHA verification JSON response: $entry=" . $content->{$entry}) if defined $config{'userauth.debug'};
     };
-    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'} . " (content='" . $res->decoded_content() . "')", undef, 1);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'} . " (content='" . $res->decoded_content() . "')", $cookie, 10);
     exit 0;
   };
 
@@ -650,7 +653,7 @@ sub userauth_verify($) {
   };
 
   # check CAPTCHA (will exit inside script in case of verification errors)
-  $captcha_check_result = userauth_check_captcha();
+  $captcha_check_result = userauth_check_captcha($cookie, \%cookie_data);
 
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
