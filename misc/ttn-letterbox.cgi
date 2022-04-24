@@ -138,6 +138,8 @@
 # 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
 # 20220415/bie: add additional "details" level "l1" with limited display of details
 # 20220417/bie: extend query string=value pattern check
+# 20220422/bie: add support for options (used for local testing/debugging)
+# 20220424/bie: clean query string from URI in response if refresh_delay is given (e.g. logout)
 #
 # TODO:
 # - lock around file writes
@@ -1166,7 +1168,13 @@ sub response($$;$$$$$) {
   );
 
   $cgi_headers{'-cookie'} = $cookie if (defined $cookie);
-  $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $ENV{'REQUEST_URI'} if (defined $refresh_delay);
+
+  if (defined $ENV{'REQUEST_URI'}) {
+    my $url = $ENV{'REQUEST_URI'};
+    $url =~ s/\?.*$//o; # strip query string from URI
+    $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $url if (defined $refresh_delay);
+  };
+
   if (defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\|json)$/o) {
     $cgi_headers{'-Type'} = $1 . "; charset=utf-8";
   };
