@@ -657,7 +657,7 @@ sub userauth_generate() {
         my %captcha_internal = captcha_internal_create($time, $config{'userauth.captcha.service'});
         $response .= "       <img alt=\"CAPTCHA\" src=\"" . $captcha_internal{'imagedata'} . "\">\n";
         $response .= "      </td>\n";
-        $response .= "      <td><input required id=\"internal-captcha-response\" type=\"text\" name=\"internal-captcha-response\" style=\"width:200px;height:40px;\"></td>\n";
+        $response .= "      <td><input required id=\"" . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'} . "\" type=\"text\" name=\"" . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'} . "\" style=\"width:200px;height:40px;\"></td>\n";
         push @cookie_values, "captcha_hash=" . $captcha_internal{'hash'};
         $response .= "     </tr>\n";
       };
