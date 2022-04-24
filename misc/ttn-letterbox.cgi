@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -T
+#!/usr/bin/perl -w
 #
 # TheThingsNetwork HTTP integration for letter box sensor
 # - receives payload via POST from TTN
@@ -144,6 +144,7 @@
 # TODO:
 # - lock around file writes
 # - safety check on config file value parsing
+# - run in tainted mode
 
 use English;
 use strict;
@@ -630,6 +631,7 @@ sub req_post() {
     response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'dev_id' contains illegal chars");
     exit;
   };
+  $dev_id = $1; # to avoid complain in tainted mode
 
   logging("POST/dev_id check passed: $dev_id") if ($config{'debug'} > 1);
 
