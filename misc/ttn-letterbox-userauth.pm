@@ -103,6 +103,7 @@ our $conffile;
 our $datadir;
 our %translations;
 our $language;
+our $mobile;
 
 # local data
 my $session_token_split = 40;
@@ -607,17 +608,22 @@ sub userauth_generate() {
     $response .= "   <form id=\"submitForm\" method=\"post\" accept-charset=\"utf-8\">\n";
     $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>" . translate("Username") . ":</td><td><input required id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Username") . ":</td>\n";
+    $response .= "     </tr>\n     <tr>\n" if ($mobile == 1);
+    $response .= "      <td><input required id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>" . translate("Password"). ":</td><td><input required id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Password"). ":</td>\n";
+    $response .= "     </tr>\n     <tr>\n" if ($mobile == 1);
+    $response .= "      <td><input required id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
 
     # CAPTCHA service form extension
     if ($captcha_supported == 1 && $captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
       $response .= "     <tr>\n";
 
-      $response .= "      <td colspan=\"2\">\n";
+      $response .= "      <td colspan=\"2\">\n" if ($mobile == 1);
+      $response .= "      <td>\n" unless ($mobile == 1);
       $response .= "       <noscript>You need Javascript for CAPTCHA verification to submit this form.</noscript>\n";
       $response .= "       <script src=\"" . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) . "\" async defer></script>\n";
 
@@ -629,7 +635,7 @@ sub userauth_generate() {
       $response .= "      </td>\n";
       $response .= "     </tr>\n";
       $response .= "     <tr>\n";
-      $response .= "      <td></td>\n";
+      $response .= "      <td></td>\n" unless ($mobile == 1);
       $response .= "      <td>\n";
 
       if ($captcha{$config{'userauth.captcha.service'}}->{'Invisible'} !~ /^(0|1)$/o) {
@@ -657,13 +663,15 @@ sub userauth_generate() {
         my %captcha_internal = captcha_internal_create($time, $config{'userauth.captcha.service'});
         $response .= "       <img alt=\"CAPTCHA\" src=\"" . $captcha_internal{'imagedata'} . "\">\n";
         $response .= "      </td>\n";
+        $response .= "     </tr>\n     <tr>\n" if ($mobile == 1);
         $response .= "      <td><input required id=\"" . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'} . "\" type=\"text\" name=\"" . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'} . "\" style=\"width:200px;height:40px;\"></td>\n";
         push @cookie_values, "captcha_hash=" . $captcha_internal{'hash'};
         $response .= "     </tr>\n";
       };
 
       $response .= "     <tr>\n";
-      $response .= "      <td></td><td><input id=\"submitBtn\" type=\"submit\" value=\"" . translate("Login") . "\" style=\"width:100px;height:50px;\"></td>\n";
+      $response .= "      <td></td>\n" unless ($mobile == 1);
+      $response .= "      <td><input id=\"submitBtn\" type=\"submit\" value=\"" . translate("Login") . "\" style=\"width:100px;height:50px;\"></td>\n";
       $response .= "     </tr>\n";
     };
 
