@@ -198,6 +198,7 @@ sub notifyDbusSignal_store_data($$$) {
          # skip
       } else {
         logging("notifyDbusSignal/store_data: call system command: $command") if defined $config{'notifyDbusSignal.debug'};
+        delete $ENV{PATH};
         my $result = `$command 2>&1`;
         my $rc = $?;
         logging("notifyDbusSignal/store_data: result of called system command: $rc") if defined $config{'notifyDbusSignal.debug'};
