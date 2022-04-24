@@ -529,7 +529,7 @@ sub captcha_internal_create($$) {
     # GD::SecurityImage: inspired by CGI::Application::Plugin::CAPTCHA
     GD::SecurityImage->import;
     my $image = GD::SecurityImage->new(
-      width    => 220,
+      width    => 230,
       height   => 60,
       ptsize   => 18,
       lines    => 5,
