@@ -138,11 +138,13 @@
 # 20220402/bie: adjust raw content in case of threshold is provided by config (fixes improper WebUI box status display)
 # 20220415/bie: add additional "details" level "l1" with limited display of details
 # 20220417/bie: extend query string=value pattern check
+# 20220422/bie: add support for options (used for local testing/debugging)
+# 20220424/bie: clean query string from URI in response if refresh_delay is given (e.g. logout)
 #
 # TODO:
 # - lock around file writes
 # - safety check on config file value parsing
-# - ability to run in tainted mode
+# - run in tainted mode
 
 use English;
 use strict;
@@ -152,6 +154,7 @@ use POSIX qw(strftime);
 use JSON;
 use Date::Parse;
 use I18N::LangTags::Detect;
+use Getopt::Std;
 use utf8;
 
 # autodetection of supported modules for Salted Hash
@@ -212,7 +215,7 @@ our %config = (
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
   'button.height' => 50,    # button height in px
-  'button.width'  => 120,   # button width  in px
+  'button.width'  => 100,   # button width  in px
   'debugmask'     => 0,     # debug mask (0x1: log raw JSON/POST)
   'debug'         => 0      # debug
 );
@@ -251,6 +254,38 @@ my @details_l1 = ("voltage", "threshold"); # only displayed in case of "details"
 
 
 ####################
+## option handling (for testing)
+####################
+sub help() {
+  print qq{
+Usage:
+    -c <FILE>   config file
+    -h|-?       this online help
+};
+};
+
+my %opts;
+if (! getopts('h\?c:', \%opts)) {
+  print "Error in command line arguments (see -h|?)\n";
+  exit 1;
+};
+
+if (defined $opts{'h'} || defined $opts{'?'}) {
+  help();
+  exit 0;
+};
+
+# config file
+if (defined $opts{'c'}) {
+  if (! -e $opts{'c'}) {
+    logging("provided config file by option -c <FILE> is not existing: ". $opts{'c'});
+    exit 1;
+  };
+  $conffile = $opts{'c'};
+};
+
+
+####################
 ## basic error check
 ####################
 
@@ -270,7 +305,7 @@ my $confdir = $ENV{'DOCUMENT_ROOT'} . "/../conf"; # default
 $datadir = $ENV{'DOCUMENT_ROOT'} . "/ttn"; # default
 
 # read optional config
-$conffile = $confdir . "/ttn-letterbox.conf";
+$conffile = $confdir . "/ttn-letterbox.conf" if (! defined $conffile);
 
 if (-e $conffile) {
   if (! -r $conffile) {
@@ -596,6 +631,7 @@ sub req_post() {
     response(500, "unsupported POST data", "", "POST request does contain valid JSON but 'dev_id' contains illegal chars");
     exit;
   };
+  $dev_id = $1; # to avoid complain in tainted mode
 
   logging("POST/dev_id check passed: $dev_id") if ($config{'debug'} > 1);
 
@@ -1133,7 +1169,13 @@ sub response($$;$$$$$) {
   );
 
   $cgi_headers{'-cookie'} = $cookie if (defined $cookie);
-  $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $ENV{'REQUEST_URI'} if (defined $refresh_delay);
+
+  if (defined $ENV{'REQUEST_URI'}) {
+    my $url = $ENV{'REQUEST_URI'};
+    $url =~ s/\?.*$//o; # strip query string from URI
+    $cgi_headers{'-Refresh'} = $refresh_delay . ";url=" . $url if (defined $refresh_delay);
+  };
+
   if (defined $ENV{'HTTP_ACCEPT'} && $ENV{'HTTP_ACCEPT'} =~ /^(text\/plain|application\|json)$/o) {
     $cgi_headers{'-Type'} = $1 . "; charset=utf-8";
   };
@@ -1203,7 +1245,7 @@ sub letter($) {
 
   my $button_size   = "width:" . $config{'button.width'} . "px;height:" . $config{'button.height'} . "px;";
   my $button_size08 = "width:" . int($config{'button.width'} * 0.8) . "px;height:" . $config{'button.height'} . "px;";
-  my $button_size13 = "width:" . int($config{'button.width'} * 1.3) . "px;height:" . $config{'button.height'} . "px;";
+  my $button_size14 = "width:" . int($config{'button.width'} * 1.4) . "px;height:" . $config{'button.height'} . "px;";
 
   ## button row #1
   $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #1 -->\n";
@@ -1231,7 +1273,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size13 . "\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size14 . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };

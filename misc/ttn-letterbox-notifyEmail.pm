@@ -33,6 +33,7 @@
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API
 # 20220218/bie: remove support of debug option by environment
+# 20220421/bie: return earlier from notifyEmail_init when not enabled
 #
 # TODO: implement faster mail delivery methods like "mailx"
 
@@ -92,6 +93,7 @@ sub notifyEmail_init() {
 
   if ($config{'notifyEmail.enable'} ne "1") {
     logging("notifyEmail/init/NOTICE: notifyEmail.enable is not '1' -> notifications not enabled") if defined $config{'notifyEmail.debug'};
+    return 0;
   } else {
     $notifyEmail_enable = 1;
   };

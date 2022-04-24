@@ -45,6 +45,7 @@
 # 20211001/bie: adjust German translation
 # 20211030/bie: add support for v3 API
 # 20220218/bie: remove support of debug option by environment
+# 20220421/bie: return earlier from notifyDbusSignal_init when not enabled
 
 use strict;
 use warnings;
@@ -99,6 +100,7 @@ sub notifyDbusSignal_init() {
 
   if ($config{'notifyDbusSignal.enable'} ne "1") {
     logging("notifyDbusSignal/init/NOTICE: notifyDbusSignal.enable is not '1' -> notifications not enabled") if defined $config{'notifyDbusSignal.debug'};
+    return 0;
   } else {
     $notifyDbusSignal_enable = 1;
   };
