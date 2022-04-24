@@ -622,8 +622,8 @@ sub userauth_generate() {
     if ($captcha_supported == 1 && $captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
       $response .= "     <tr>\n";
 
-      $response .= "      <td colspan=\"2\">\n" if ($mobile == 1);
-      $response .= "      <td>\n" unless ($mobile == 1);
+      $response .= "      <td colspan=\"2\">\n" unless ($mobile == 1);
+      $response .= "      <td>\n" if ($mobile == 1);
       $response .= "       <noscript>You need Javascript for CAPTCHA verification to submit this form.</noscript>\n";
       $response .= "       <script src=\"" . captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'}) . "\" async defer></script>\n";
 
