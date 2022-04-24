@@ -522,21 +522,21 @@ sub captcha_internal_create($$) {
     my $image = GD::SecurityImage->new(
       width    => 200,
       height   => 60,
-      ptsize   => 16,
-      lines    => 3,
+      ptsize   => 18,
+      lines    => 5,
       font     => $captcha{$config{'userauth.captcha.service'}}->{'Font'},
       bgcolor  => "#FFFF00",
       frame    => 0,
       angle    => 0,
       scramble => 1,
       send_ctobg => 1,
-      rnd_data => [ '2', '3', '4', '8', '9', 'A', 'C', 'E', 'F', 'H', 'K', 'M', 'N', 'T', 'W', 'Z' ]
+      rnd_data => [ '2', '3', '4', '8', '9', 'A', 'C', 'E', 'F', 'H', 'K', 'M', 'N', 'T', 'V', 'W', 'Z' ]
     );
 
     $image->random();
 
     $image->create(
-      'ttf' => 'blank',
+      'ttf' => 'default',
       'undef',
     );
 
