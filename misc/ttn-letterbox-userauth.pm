@@ -556,7 +556,7 @@ sub captcha_internal_create($$) {
   my $hash = sha512_base64("secret=" . $config{'uuid'} . ":time=" . $time . ":random=" . $random_string);
 
   return (
-    'imagedata' => "data:image/" . $mime_type . ";base64," . encode_base64($image_data),
+    'imagedata' => "data:image/" . $mime_type . ";base64," . encode_base64($image_data, ""),
     'hash'      => $hash
   );
 };
@@ -653,7 +653,7 @@ sub userauth_generate() {
         ## INTERNAL CAPTCHA
         $response .= "      <td>\n";
         my %captcha_internal = captcha_internal_create($time, $config{'userauth.captcha.service'});
-        $response .= '<img alt="CAPTCHA" src="' . $captcha_internal{'imagedata'} . '">';
+        $response .= "       <img alt=\"CAPTCHA\" src=\"" . $captcha_internal{'imagedata'} . "\">\n";
         $response .= "      </td>\n";
         $response .= "      <td><input required id=\"internal-captcha-response\" type=\"text\" name=\"internal-captcha-response\" style=\"width:200px;height:40px;\"></td>\n";
         push @cookie_values, "captcha_hash=" . $captcha_internal{'hash'};
@@ -676,9 +676,9 @@ sub userauth_generate() {
       $captcha{$config{'userauth.captcha.service'}}->{'ScriptCode'}
     </script>
 |;
-    $response .= "   </form>\n";
-
     };
+
+    $response .= "   </form>\n";
 
     push @cookie_values, "session_token_cookie=" . $session_token_cookie;
     push @cookie_values, "&time=" . $time;
