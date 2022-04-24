@@ -43,7 +43,7 @@
 #	  userauth.captcha.secret=<secret, format depends on service>
 #
 #	  - captcha service TrueType font (only optional for internal services)
-#	  userauth.captcha.ttf=<ttf-file> (default: $captcha_font -> see below)
+#	  userauth.captcha.ttf=<ttf-file> (default: 'Font' attribute in service config -> see below)
 #
 #
 # user file:
@@ -232,6 +232,7 @@ my %captcha = (
     'ResponseField' => 'internal-captcha-response',
     'Invisible'     => '0',
     'External'      => '0',
+    'Font'          => '/usr/share/fonts/open-sans/OpenSans-Regular.ttf',
   }
 );
 
@@ -395,20 +396,21 @@ sub init_captcha_service_internal() {
   # check for font
   if (defined $config{'userauth.captcha.ttf'} && length($config{'userauth.captcha.ttf'}) > 0) {
     if (! -e $config{'userauth.captcha.ttf'}) {
-      logging("userauth/init: captcha service enabled, but configured font not found: " . $config{'userauth.captcha.ttffont'});
+      logging("userauth/init: captcha service '" . $config{'userauth.captcha.service'} . "' enabled, but configured font not found: " . $config{'userauth.captcha.ttffont'});
       return 0;
     };
 
-    $captcha_font = $config{'userauth.captcha.ttf'};
+    $captcha{$config{'userauth.captcha.service'}}->{'Font'} = $config{'userauth.captcha.ttf'};
   };
 
-  if (! -e $captcha_font) {
-    logging("userauth/init: captcha service enabled, but required font (default) not found: " . $captcha_font);
+  if (! -e $captcha{$config{'userauth.captcha.service'}}->{'Font'}) {
+    logging("userauth/init: captcha service '" . $config{'userauth.captcha.service'} . "' enabled, but required font (default) not found: " . $captcha{$config{'userauth.captcha.service'}}->{'Font'});
     return 0;
   };
 
   return 1;
 };
+
 
 ##############
 ## initialization
@@ -488,7 +490,6 @@ sub userauth_check() {
 };
 
 ## INTERNAL CAPTCHA creation
-# GD::SecurityImage: inspired by CGI::Application::Plugin::CAPTCHA
 sub captcha_internal_create($$) {
 
   my $time = $_[0];
@@ -497,13 +498,14 @@ sub captcha_internal_create($$) {
   my ($image_data, $mime_type, $random_string);
 
   if ($service eq "GD::SecurityImage") {
+    # GD::SecurityImage: inspired by CGI::Application::Plugin::CAPTCHA
     GD::SecurityImage->import;
     my $image = GD::SecurityImage->new(
       width    => 200,
       height   => 60,
       ptsize   => 16,
       lines    => 3,
-      font     => $captcha_font,
+      font     => $captcha{$config{'userauth.captcha.service'}}->{'Font'},
       bgcolor  => "#FFFF00",
       frame    => 0,
       angle    => 0,
