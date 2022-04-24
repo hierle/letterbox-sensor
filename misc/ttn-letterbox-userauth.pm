@@ -154,6 +154,7 @@ $translations{'Logout already done'}->{'de'} = "Abmeldung bereits erfolgt";
 $translations{'username/password not accepted'}->{'de'} = "Benutzername/Passwort nicht akzeptiert";
 $translations{'will be redirected back'}->{'de'} = "wird nun zurückgeleitet";
 $translations{'CAPTCHA problem'}->{'de'} = "CAPTCHA Problem";
+$translations{'session problem'}->{'de'} = "Sitzungsproblem";
 
 ## CAPTCHA  service definitions, selected by 'userauth.captcha.service'
 my %captcha = (
@@ -779,50 +780,50 @@ sub userauth_verify($) {
   my $uuid = $ug->from_string($config{'uuid'});
 
   if ($cookie_found == 0) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "session expired (no cookie)", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "session expired (no cookie)", $cookie, 10);
     exit 0;
   };
 
   # check session token in cookie
   if (! defined $cookie_data{'session_token_cookie'}) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'session_token_cookie'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   # check time token in cookie
   if (! defined $cookie_data{'time'}) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data missing: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "cookie data missing: time", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'time'} !~ /^[0-9]{10}$/o) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
     exit 0;
   };
 
   # check post data
   if (! defined $post_data{'session_token_form'}) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data missing: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "form data missing: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'session_token_form'} !~ /^[0-9A-Za-z=%\/]+$/o) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'rand'}) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data missing: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "form data missing: rand", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'rand'} !~ /^0\.[0-9]+$/o) {
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("session problem") . ")</font>", "", "form data length/format mismatch: rand", $cookie, 10);
     exit 0;
   };
 
