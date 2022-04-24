@@ -79,7 +79,7 @@
 # 20220218/bie: remove support of debug option by environment, align debug options
 # 20220418/bie: add CAPTCHA support with external services (Google, hCaptcha, FriendlyCaptcha)
 # 20220422/bie: add CAPTCHA support with internal GD::SecurityImage, replace hardcoded module requirement to per CAPTCHA service
-# 20220424/bie: cosmetics/minor improvements/alignements
+# 20220424/bie: cosmetics/minor improvements/alignments
 
 use strict;
 use warnings;
