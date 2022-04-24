@@ -28,7 +28,7 @@
 #     FriendlyCaptcha: https://friendlycaptcha.com/
 #
 #   supported internal implementations
-#     GD::SecurityImage (internal)
+#     GD::SecurityImage
 #
 #	  - enable captcha
 #	  userauth.captcha.enable=1
@@ -93,7 +93,6 @@ use Crypt::CBC;
 use utf8;
 use Module::Load;
 use Module::Load::Conditional;
-
 
 ## globals
 our %hooks;
@@ -243,7 +242,6 @@ my %captcha = (
 #	captcha support status
 my $captcha_supported = 0;
 my $captcha_check_result = 'UNKNOWN';
-my $captcha_font = '/usr/share/fonts/open-sans/OpenSans-Regular.ttf';
 
 ##############
 ## CAPTCHA functions
