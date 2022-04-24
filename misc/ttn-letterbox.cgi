@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -w -T
 #
 # TheThingsNetwork HTTP integration for letter box sensor
 # - receives payload via POST from TTN
@@ -144,7 +144,6 @@
 # TODO:
 # - lock around file writes
 # - safety check on config file value parsing
-# - ability to run in tainted mode
 
 use English;
 use strict;
