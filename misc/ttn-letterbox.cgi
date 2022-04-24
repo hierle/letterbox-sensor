@@ -214,7 +214,7 @@ our %config = (
   'delta.warn'    => 45,    # (minutes) when color of deltaLastReceived turns orange
   'delta.crit'    => 75,    # (minutes) when color of deltaLastReceived turns red
   'button.height' => 50,    # button height in px
-  'button.width'  => 120,   # button width  in px
+  'button.width'  => 100,   # button width  in px
   'debugmask'     => 0,     # debug mask (0x1: log raw JSON/POST)
   'debug'         => 0      # debug
 );
@@ -1243,7 +1243,7 @@ sub letter($) {
 
   my $button_size   = "width:" . $config{'button.width'} . "px;height:" . $config{'button.height'} . "px;";
   my $button_size08 = "width:" . int($config{'button.width'} * 0.8) . "px;height:" . $config{'button.height'} . "px;";
-  my $button_size13 = "width:" . int($config{'button.width'} * 1.3) . "px;height:" . $config{'button.height'} . "px;";
+  my $button_size14 = "width:" . int($config{'button.width'} * 1.4) . "px;height:" . $config{'button.height'} . "px;";
 
   ## button row #1
   $response .= "<table border=\"0\" cellspacing=\"0\" cellpadding=\"2\"><!-- button row #1 -->\n";
@@ -1271,7 +1271,7 @@ sub letter($) {
   };
   $response .= "  <td>\n";
   $response .= "   <form method=\"get\">\n";
-  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size13 . "\">\n";
+  $response .= "    <input type=\"submit\" value=\"" . translate("Autoreload") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size14 . "\">\n";
   for my $key (sort keys %$querystring_copy) {
     $response .= "    <input type=\"text\" name=\"" . $key . "\" value=\"" . $querystring_copy->{$key} . "\" hidden>\n";
   };

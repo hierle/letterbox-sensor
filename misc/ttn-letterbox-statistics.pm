@@ -757,7 +757,7 @@ sub statistics_html_actions($) {
     $toggle_color = "#00E000";
   };
 
-  $button_size = "width:" . int($config{'button.width'} / 1.5) . "px;height:" . $config{'button.height'} . "px;";
+  $button_size = "width:" . int($config{'button.width'} / 1.2) . "px;height:" . $config{'button.height'} . "px;";
 
   $response .= "   <form method=\"get\">\n";
   $response .= "    <input type=\"submit\" value=\"" . translate("Statistics") . "\" style=\"background-color:" . $toggle_color . ";" . $button_size . "\">\n";
