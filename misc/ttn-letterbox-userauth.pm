@@ -264,7 +264,10 @@ sub captcha_string_token_replace($;$) {
   return $string;
 };
 
+
+##############
 ## check CAPTCHA
+##############
 # exit in case of error occurs with error message/log entry
 # silent return in case of server/request issue
 sub userauth_check_captcha($$) {
@@ -279,7 +282,7 @@ sub userauth_check_captcha($$) {
   # check whether captcha response is contained in POST data
   if (! defined $post_data{$captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}}) {
     # POST data is missing response field content
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response missing in POST data: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, undef, 1, 1);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha response missing in POST data: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, undef, 1, 1);
     exit 0;
   };
 
@@ -287,7 +290,7 @@ sub userauth_check_captcha($$) {
 
   if ($response_content eq "") {
     # POST data response field content is empty
-    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "user '" . $post_data{'username'} . "' captcha response empty in POST data field: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha response empty in POST data field: " . $captcha{$config{'userauth.captcha.service'}}->{'ResponseField'}, $cookie, 10);
     exit 0;
   };
 
@@ -305,7 +308,9 @@ sub userauth_check_captcha($$) {
 };
 
 
+##############
 ## check CAPTCHA external
+##############
 # verification via external service
 sub userauth_check_captcha_external($$$) {
   my $cookie = $_[0];
@@ -352,19 +357,21 @@ sub userauth_check_captcha_external($$$) {
 };
 
 
+##############
 ## check CAPTCHA internal
+##############
 sub userauth_check_captcha_internal($$$) {
   my $cookie = $_[0];
   my $cookie_data_h = $_[1];
   my $response_content = $_[2];
 
   if (! defined $cookie_data_h->{'captcha_hash'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: captcha_hash", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "cookie data missing: captcha_hash", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'captcha_hash'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: captcha_hash", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "cookie data length/format mismatch: captcha_hash", $cookie, 10);
     exit 0;
   };
 
@@ -461,7 +468,7 @@ sub userauth_init() {
       # check for required modules
       if (defined $captcha{$config{'userauth.captcha.service'}}->{'Modules'}) {
         foreach my $module (@{$captcha{$config{'userauth.captcha.service'}}->{'Modules'}}) {
-          logging("userauth/init: captcha service check required module: " . $module);
+          logging("userauth/init: captcha service check required module: " . $module) if defined $config{'userauth.debug'};
           my $result = Module::Load::Conditional::check_install(module => $module);
           if (! defined $result) {
             logging("userauth/init: captcha service not enabled, module load problem: " . $config{'userauth.captcha.service'} . " (" . $module . ")");
@@ -520,7 +527,7 @@ sub captcha_internal_create($$) {
     # GD::SecurityImage: inspired by CGI::Application::Plugin::CAPTCHA
     GD::SecurityImage->import;
     my $image = GD::SecurityImage->new(
-      width    => 200,
+      width    => 220,
       height   => 60,
       ptsize   => 18,
       lines    => 5,
@@ -760,70 +767,70 @@ sub userauth_verify($) {
   my $uuid = $ug->from_string($config{'uuid'});
 
   if ($cookie_found == 0) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session expired or cookies disabled, will be redirected soon)</font>", "", "session expired (no cookie)", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "session expired (no cookie)", $cookie, 10);
     exit 0;
   };
 
   # check session token in cookie
   if (! defined $cookie_data{'session_token_cookie'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data missing: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'session_token_cookie'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data length/format mismatch: session_token_cookie", $cookie, 10);
     exit 0;
   };
 
   # check time token in cookie
   if (! defined $cookie_data{'time'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data missing: time", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'time'} !~ /^[0-9]{10}$/o) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "cookie data length/format mismatch: time", $cookie, 10);
     exit 0;
   };
 
   # check post data
   if (! defined $post_data{'session_token_form'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data missing: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'session_token_form'} !~ /^[0-9A-Za-z=%\/]+$/o) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: session_token_form", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'rand'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data missing: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data missing: rand", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'rand'} !~ /^0\.[0-9]+$/o) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: rand", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: rand", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'username'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("username empty") . ")</font>", "", "form data missing: username", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("username empty") . ")</font>", "", "form data missing: username", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'username'} !~ /^[0-9A-Za-z]+$/o) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: username", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: username", $cookie, 10);
     exit 0;
   };
 
   if (! defined $post_data{'password'}) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (" . translate("password empty") . ")</font>", "", "form data missing: password", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("password empty") . ")</font>", "", "form data missing: password", $cookie, 10);
     exit 0;
   };
 
   if ($post_data{'password'} !~ /^.+$/o) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "form data length/format mismatch: password");
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "form data length/format mismatch: password");
     exit 0;
   };
 
@@ -836,18 +843,18 @@ sub userauth_verify($) {
 
   if ($session_token ne $session_token_reference) {
     $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1);
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session invalid, will be redirected soon)</font>", "", "session invalid", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "session invalid", $cookie, 10);
     exit 0;
   };
 
   if ($cookie_data{'time'} + $session_token_lifetime < time) {
     $cookie = CGI::cookie(-name => 'TTN-AUTH-TOKEN', value => "", -secure => 1, -httponly => 1);
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (login session expired, will be redirected soon)</font>", "", "session expired", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "session expired", $cookie, 10);
     exit 0;
   };
 
   if (! -e $userfile) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "no htpasswd user file found: " . $userfile);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "no htpasswd user file found: " . $userfile);
     exit 0;
   };
 
@@ -857,13 +864,13 @@ sub userauth_verify($) {
   # look for user in file
   my $htpasswd = new Apache::Htpasswd({passwdFile => $userfile, ReadOnly   => 1});
   if (! defined $htpasswd) {
-    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "problem with htpasswd  user file: " . $userfile);
+    response(401, "<font color=\"red\">" . translate("Login failed") . "</font>", "", "problem with htpasswd  user file: " . $userfile);
     exit 0;
   };
 
   my $password_hash = $htpasswd->fetchPass($post_data{'username'});
   if (! defined $password_hash || $password_hash eq "0") {
-    response(401, "<font color=\"red\">" . translate("" . translate("Authentication problem") . "") . " (" . translate("username/password not accepted") . ")</font>", "", "user not found in file: " . $userfile . " (" . $post_data{'username'} . ")", $cookie, 10);
+    response(401, "<font color=\"red\">" . translate("" . translate("Login failed") . "") . " (" . translate("username/password not accepted") . ")</font>", "", "user not found in file: " . $userfile . " (" . $post_data{'username'} . ")", $cookie, 10);
     exit 0;
   };
 
@@ -873,7 +880,7 @@ sub userauth_verify($) {
     # bcrypt
     my $hash = en_base64(bcrypt_hash({ key_nul => 1, cost => $2, salt => de_base64($3)}, $post_data{'password'}));
     if ($hash ne $4) {
-      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
+      response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("username/password not accepted") . ")</font>", "", "password for user not matching (bcrypt): " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $hash . ")", $cookie, 10);
       logging("username=" . $post_data{'username'} . " password=" . $htpasswd->fetchPass($post_data{'username'} . " hash=" . $hash)) if defined $config{'userauth.debug'};;
       exit 0;
     };
@@ -881,7 +888,7 @@ sub userauth_verify($) {
     # try MD5/SHA1 via module
     my $password_result = $htpasswd->htCheckPassword($post_data{'username'}, $post_data{'password'});
     if (! defined $password_result || $password_result eq "0") {
-      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (username/password not accepted)</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
+      response(401, "<font color=\"red\">" . translate("Login failed") . " (" . translate("username/password not accepted") . ")</font>", "", "password for user not matching: " . $userfile . " (username=" . $post_data{'username'} . " password_result=" . $password_result . ")", $cookie, 10);
       exit 0;
     };
   };
