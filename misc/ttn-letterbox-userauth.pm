@@ -605,10 +605,10 @@ sub userauth_generate() {
     $response .= "   <form id=\"submitForm\" method=\"post\" accept-charset=\"utf-8\">\n";
     $response .= "    <table border=\"0\" cellspacing=\"0\" cellpadding=\"2\">\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>" . translate("Username") . ":</td><td><input id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Username") . ":</td><td><input required id=\"username\" type=\"text\" name=\"username\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
     $response .= "     <tr>\n";
-    $response .= "      <td>" . translate("Password"). ":</td><td><input id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
+    $response .= "      <td>" . translate("Password"). ":</td><td><input required id=\"password\" type=\"password\" name=\"password\" style=\"width:200px;height:40px;\"></td>\n";
     $response .= "     </tr>\n";
 
     # CAPTCHA service form extension
