@@ -291,15 +291,32 @@ sub userauth_check_captcha($$) {
     exit 0;
   };
 
-  # verify captcha response
+  # verify captcha response, only returns if successful
   logging("userauth_check_captcha: verification response=" . $response_content) if defined $config{'userauth.debug'};
 
   if ($captcha{$config{'userauth.captcha.service'}}->{'External'} eq "1") {
-    ## EXTERNAL
+    userauth_check_captcha_external($cookie, $cookie_data_h, $response_content);
+  } else {
+    userauth_check_captcha_internal($cookie, $cookie_data_h, $response_content);
+  };
+
+  logging("user '" . $post_data{'username'} . "' captcha: verification successful: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
+  return "OK";
+};
+
+
+## check CAPTCHA external
+# verification via external service
+sub userauth_check_captcha_external($$$) {
+  my $cookie = $_[0];
+  my $cookie_data_h = $_[1];
+  my $response_content = $_[2];
+
   my $ua = LWP::UserAgent->new;
   my $url = $captcha{$config{'userauth.captcha.service'}}->{'VerifyURL'};
   my $req = HTTP::Request->new(POST => $url);
   my %form;
+
   for my $field (keys %{$captcha{$config{'userauth.captcha.service'}}->{'VerifyPOST'}}) {
     # compose form depending of captcha service
     $form{$field} = captcha_string_token_replace($captcha{$config{'userauth.captcha.service'}}->{'VerifyPOST'}->{$field}, $response_content);
@@ -332,29 +349,31 @@ sub userauth_check_captcha($$) {
     response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'} . " (content='" . $res->decoded_content() . "')", $cookie, 10);
     exit 0;
   };
+};
 
-  } else {
-    ## INTERNAL
-    if (! defined $cookie_data_h->{'captcha_hash'}) {
-      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: captcha_hash", $cookie, 10);
-      exit 0;
-    };
 
-    if ($cookie_data{'captcha_hash'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
-      response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: captcha_hash", $cookie, 10);
-      exit 0;
-    };
+## check CAPTCHA internal
+sub userauth_check_captcha_internal($$$) {
+  my $cookie = $_[0];
+  my $cookie_data_h = $_[1];
+  my $response_content = $_[2];
 
-    my $hash = sha512_base64("secret=" . $config{'uuid'} . ":time=" . $cookie_data_h->{'time'} . ":random=" . $response_content);
-
-    if ($hash ne $cookie_data_h->{'captcha_hash'}) {
-      response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'}, $cookie, 10);
-      exit 0;
-    };
+  if (! defined $cookie_data_h->{'captcha_hash'}) {
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data missing: captcha_hash", $cookie, 10);
+    exit 0;
   };
 
-  logging("user '" . $post_data{'username'} . "' captcha: verification successful: " . $config{'userauth.captcha.service'}) if defined $config{'userauth.debug'};
-  return "OK";
+  if ($cookie_data{'captcha_hash'} !~ /^[0-9A-Za-z=%\/\+]+$/) {
+    response(401, "<font color=\"red\">" . translate("Authentication problem") . " (investigate error log)</font>", "", "cookie data length/format mismatch: captcha_hash", $cookie, 10);
+    exit 0;
+  };
+
+  my $hash = sha512_base64("secret=" . $config{'uuid'} . ":time=" . $cookie_data_h->{'time'} . ":random=" . $response_content);
+
+  if ($hash ne $cookie_data_h->{'captcha_hash'}) {
+    response(401, "<font color=\"red\">" . translate("Login failed") . " (CAPTCHA)</font>", "", "user '" . $post_data{'username'} . "' captcha verification not successful: " . $config{'userauth.captcha.service'}, $cookie, 10);
+    exit 0;
+  };
 };
 
 
