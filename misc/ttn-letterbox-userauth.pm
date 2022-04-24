@@ -388,19 +388,19 @@ sub init_captcha_service_external() {
 
   # ScriptURL' https?
   if ($captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'} !~ /^https:\/\//o) {
-    logging("userauth/init: captcha service enabled, but unsupported 'ScriptURL' found (FIX CODE): " . $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'});
+    logging("userauth/init: captcha service '" . $config{'userauth.captcha.service'} . "' enabled, but unsupported 'ScriptURL' found (FIX CODE): " . $captcha{$config{'userauth.captcha.service'}}->{'ScriptURL'});
     return 0;
   };
 
   # 'sitekey' configured?
   if (!(defined $config{'userauth.captcha.sitekey'} && length($config{'userauth.captcha.sitekey'}) > 0)) {
-    logging("userauth/init: captcha service enabled but 'sitekey' missing/empty in config: userauth.captcha.sitekey");
+    logging("userauth/init: captcha service '" . $config{'userauth.captcha.service'} . "' enabled but 'sitekey' missing/empty in config: userauth.captcha.sitekey");
     return 0;
   };
 
   # 'secret' configured?
   if (!(defined $config{'userauth.captcha.secret'} && length($config{'userauth.captcha.secret'}) > 0)) {
-    logging("userauth/init: captcha service enabled but 'secret' missing/empty in config: userauth.captcha.secret");
+    logging("userauth/init: captcha service '" . $config{'userauth.captcha.service'} . "' enabled but 'secret' missing/empty in config: userauth.captcha.secret");
     return 0;
   };
 
@@ -453,7 +453,7 @@ sub userauth_init() {
           $captcha_supported = init_captcha_service_internal();
         };
       } else {
-        logging("userauth/init: captcha service enabled but 'External' missing (FIX-CODE): " . $config{'userauth.captcha.service'});
+        logging("userauth/init: captcha service enabled but 'External' attribute missing (FIX-CODE): " . $config{'userauth.captcha.service'});
       };
     };
 
