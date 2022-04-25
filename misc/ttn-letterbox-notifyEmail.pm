@@ -160,7 +160,7 @@ sub notifyEmail_store_data($$$) {
       logging("notifyEmail/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyEmail.debug'};
 
       if ($notifyEmail_enable != 1) {
-        logging("notifyEmail/store_data/NOTICE: would send E-Mail via MIME::Lite to $recipient (if enabled)");
+        logging("notifyEmail/store_data/NOTICE: would send E-Mail via MIME::Lite to (if enabled): $recipient");
          # skip
       } else {
         logging("notifyEmail/store_data: call MIME::Lite now with recipient $recipient") if defined $config{'notifyEmail.debug'};

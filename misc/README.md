@@ -134,7 +134,7 @@ Integration → Webhooks → Custom webhook
 
 - supports
   - username/password authentication
-  - optional protection by CAPTCHA (reCAPTCHA, hCaptcha, FriendlyCaptcha)
+  - optional protection by CAPTCHA (reCAPTCHA, hCaptcha, FriendlyCaptcha, GD::SecurityImage)
 - user file: `$BASEDIR/data/ttn/ttn.users.list`
 
 -> see more for now description inside module

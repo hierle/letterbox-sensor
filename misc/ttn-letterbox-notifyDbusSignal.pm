@@ -46,6 +46,7 @@
 # 20211030/bie: add support for v3 API
 # 20220218/bie: remove support of debug option by environment
 # 20220421/bie: return earlier from notifyDbusSignal_init when not enabled
+# 20220424/bie: use hardcoded binary /usr/bin/dbus-send to avoid insecure $ENV{PATH} in tainted mode
 
 use strict;
 use warnings;
@@ -190,13 +191,14 @@ sub notifyDbusSignal_store_data($$$) {
       logging("notifyDbusSignal/store_data: send notification: $dev_id/$status/$receiver") if defined $config{'notifyDbusSignal.debug'};
 
       # action
-      my $command = 'dbus-send --system --type=method_call --print-reply --dest=' . $config{'notifyDbusSignal.dest'} . ' /org/asamk/Signal/' . $config{'notifyDbusSignal.sender'} . ' org.asamk.Signal.sendMessage string:"' . $message . '" array:string: string:' . $phonenumber;
+      my $command = '/usr/bin/dbus-send --system --type=method_call --print-reply --dest=' . $config{'notifyDbusSignal.dest'} . ' /org/asamk/Signal/' . $config{'notifyDbusSignal.sender'} . ' org.asamk.Signal.sendMessage string:"' . $message . '" array:string: string:' . $phonenumber;
 
       if ($notifyDbusSignal_enable != 1) {
         logging("notifyDbusSignal/store_data/NOTICE: would call system command (if enabled): $command");
          # skip
       } else {
         logging("notifyDbusSignal/store_data: call system command: $command") if defined $config{'notifyDbusSignal.debug'};
+        delete $ENV{PATH};
         my $result = `$command 2>&1`;
         my $rc = $?;
         logging("notifyDbusSignal/store_data: result of called system command: $rc") if defined $config{'notifyDbusSignal.debug'};
