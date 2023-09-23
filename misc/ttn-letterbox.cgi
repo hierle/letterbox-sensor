@@ -10,7 +10,7 @@
 # (P) & (C) 2019-2019 Alexander Hierle <alex@hierle.com>
 #
 # Major extensions:
-# (P) & (C) 2019-2022 Dr. Peter Bieringer <pb@bieringer.de>
+# (P) & (C) 2019-2023 Dr. Peter Bieringer <pb@bieringer.de>
 #
 # License: GPLv3
 #
@@ -140,6 +140,7 @@
 # 20220417/bie: extend query string=value pattern check
 # 20220422/bie: add support for options (used for local testing/debugging)
 # 20220424/bie: clean query string from URI in response if refresh_delay is given (e.g. logout)
+# 20230923/bie: set counter to 0 in case neither 'counter' nor 'f_cnt' is set
 #
 # TODO:
 # - lock around file writes
@@ -1091,6 +1092,7 @@ sub req_get() {
     $dev_hash{$dev_id}->{'info'}->{'voltage'} = $voltage;
     $dev_hash{$dev_id}->{'info'}->{'rssi'} = $rssi;
     $dev_hash{$dev_id}->{'info'}->{'snr'} = $snr;
+    $dev_hash{$dev_id}->{'info'}->{'counter'} = 0; # default in case neither 'counter' nor 'f_cnt' is set
     $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'counter'} if defined ($content->{'counter'}); # v2
     $dev_hash{$dev_id}->{'info'}->{'counter'} = $content->{'uplink_message'}->{'f_cnt'} if defined ($content->{'uplink_message'}->{'f_cnt'}); # v3
     $dev_hash{$dev_id}->{'info'}->{'hardwareSerial'} = $hardware_serial;
