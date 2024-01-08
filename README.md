@@ -1,4 +1,7 @@
 # LoRaWan EU868MHz Letterbox Sensor
+
+New version letterbox sensor v2 available here: https://github.com/hierle/letterbox-sensor-v2 :)
+
 sensing letters in your letterbox via IR diode pair, sending out status via LoRaWan/TTN
 based on Attiny84, RFM95W, HSDL9100, powered by a CR2032 battery.
 
