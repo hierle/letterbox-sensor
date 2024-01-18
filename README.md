@@ -44,6 +44,7 @@ BOM (digikey.de):
 |LQG18HN1N8S00D     |  IND 1.8NH 0603         |
 |GRM1885C1H2R7CA01D |  CAP 2.7PF 0603         |
 
+An extended web ui by Peter is available here: https://github.com/pbiering/letterbox-sensor-web
 
 Have fun!
 
